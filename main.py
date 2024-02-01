@@ -3,11 +3,11 @@ import os
 
 def main():
 
-    # Loading of simulated data (LHE)
-    data_loading(data_folder)
+    # Loading of simulated data (LHE/HEPMC)
+    momenta = data_loading()
 
     # Processing of data and perfoming experimental cuts
-    data_processing()
+    data_processing(momenta)
 
     # Computing N_events 
     computations()

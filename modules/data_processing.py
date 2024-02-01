@@ -1,3 +1,4 @@
+from parameters.data_parameters import *
 # Handling of data by converting to correct units (if need be) and performing the cuts as per the experimental parameters
 
 def unit_converter(initial_unit):
@@ -19,7 +20,12 @@ def unit_converter(initial_unit):
     return number[0] / conversion_factors[unit[0]]
 
 
+def data_processing(momenta):
 
-def data_processing():
-    # Requires implementation
+    (momentum_boson, momentum_HNL, momentum_prompt, 
+    momentum_displaced_minus, momentum_displaced_plus, 
+    momentum_neutrino) = momenta
+
+    HNL_mass
+    
     return 0

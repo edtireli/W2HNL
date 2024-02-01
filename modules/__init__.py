@@ -6,3 +6,6 @@ from .data_loading import *
 from .data_processing import *
 from .computations import *
 from .plotting import *
+
+from parameters.data_parameters import *
+from parameters.experimental_parameters import *

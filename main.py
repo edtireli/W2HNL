@@ -10,11 +10,18 @@ current_directory = os.getcwd() # Current path
 data_path = os.path.join(current_directory,'data', data_folder) # Data folder path
 
 def main():
+
     # Loading of simulated data (LHE)
     data_loading()
 
     # Processing of data and perfoming experimental cuts
     data_processing()
+
+    # Computing N_events 
+    computation()
+
+    # Plots
+    plotting()
 
 if __name__ == '__main__':
     main()

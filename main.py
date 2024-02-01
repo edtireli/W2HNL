@@ -13,5 +13,8 @@ def main():
     # Loading of simulated data (LHE)
     data_loading()
 
+    # Processing of data and perfoming experimental cuts
+    data_processing()
+
 if __name__ == '__main__':
     main()

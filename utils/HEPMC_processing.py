@@ -17,7 +17,7 @@ def load_pickle_files(data_folder):
 
     loaded_data = {}
     for file_name in files_to_load:
-        file_path = os.path.join(data_folder, '/HEPMC', file_name)
+        file_path = os.path.join(data_folder, 'HEPMC', file_name)
         if os.path.exists(file_path):
             with open(file_path, 'rb') as file:
                 # Extract the variable name from the file name by removing the extension
@@ -30,8 +30,8 @@ def load_pickle_files(data_folder):
     return loaded_data
 
 
-def check_and_load_files(data_path, pid_HNL):
-    # Define the files to check based on the HNL_id
+def check_and_load_files(data_path):
+    # Define the files to check based on the pid_HNL
     files_to_check = [
         f"{data_path}/HEPMC/momentum_prompt.pkl",
         f"{data_path}/HEPMC/momentum_displaced_plus.pkl",
@@ -46,7 +46,7 @@ def check_and_load_files(data_path, pid_HNL):
     
     # If all files exist, load them
     if all_files_exist:
-        print("[+] All required files exist. Loading...")
+        print("All required files exist. Loading...")
         loaded_data = {}
         for file in files_to_check:
             with open(file, 'rb') as f:
@@ -58,8 +58,14 @@ def check_and_load_files(data_path, pid_HNL):
     return False, None  # If not all files exist, return a flag indicating failure and no data
 
 def save_to_pickle(data, name, data_folder):
+    # Construct the full path for the directory where the pickle file will be saved
+    directory_path = os.path.join(data_folder, 'HEPMC')
+    
+    # Ensure the directory exists
+    os.makedirs(directory_path, exist_ok=True)
+    
     # Construct the full path for the pickle file
-    file_path = os.path.join(data_folder, name + '.pkl')
+    file_path = os.path.join(directory_path, name + '.pkl')
     
     # Open the file and save the data
     with open(file_path, 'wb') as output_file:
@@ -67,9 +73,9 @@ def save_to_pickle(data, name, data_folder):
     
     print(f"Data saved to {file_path}")
 
-def HEPMC_data_processing(folder, HNL_id):
+def HEPMC_data_processing(folder):
     print('---------------------------- HEPMC Data processing --------------------------')
-    files_exist, loaded_data = check_and_load_files(folder, HNL_id)
+    files_exist, loaded_data = check_and_load_files(folder)
     if files_exist:
         print('Using previously stored pre-analysed momentum data...')
         momentum_prompt = loaded_data['momentum_prompt']
@@ -81,7 +87,7 @@ def HEPMC_data_processing(folder, HNL_id):
     else:
         print('No previously stored pre-analysed momentum data - running analysis:')
         def has_W_children(particle):
-            return any(child.abs_pid == 24 and any(grandchild.abs_pid == HNL_id for grandchild in child.end_vertex.particles_out) for child in particle.children)
+            return any(child.abs_pid == pid_boson and any(grandchild.abs_pid == pid_HNL for grandchild in child.end_vertex.particles_out) for child in particle.children)
     
         def has_particle_parent(particle, pid):
             return any(parent.abs_pid == pid for parent in particle.parents)
@@ -124,12 +130,12 @@ def HEPMC_data_processing(folder, HNL_id):
                 momentum_neutrino.append(filtered_neutrinos)
         
         # Saving the files as pickle files so that HEPMC no longer is used
-        save_to_pickle(momentum_boson, 'momentum_boson', data_folder)
-        save_to_pickle(momentum_HNL, 'momentum_HNL', data_folder)
-        save_to_pickle(momentum_prompt, 'momentum_prompt', data_folder)
-        save_to_pickle(momentum_displaced_minus, 'momentum_displaced_minus', data_folder)
-        save_to_pickle(momentum_displaced_plus, 'momentum_displaced_plus', data_folder)
-        save_to_pickle(momentum_neutrino, 'momentum_neutrino', data_folder)
+        save_to_pickle(momentum_boson, 'momentum_boson', folder)
+        save_to_pickle(momentum_HNL, 'momentum_HNL', folder)
+        save_to_pickle(momentum_prompt, 'momentum_prompt', folder)
+        save_to_pickle(momentum_displaced_minus, 'momentum_displaced_minus', folder)
+        save_to_pickle(momentum_displaced_plus, 'momentum_displaced_plus', folder)
+        save_to_pickle(momentum_neutrino, 'momentum_neutrino', folder)
 
         
     return momentum_boson, momentum_HNL, momentum_prompt, momentum_displaced_minus, momentum_displaced_plus, momentum_neutrino

@@ -71,7 +71,7 @@ def HEPMC_data_processing(folder, HNL_id):
     print('---------------------------- HEPMC Data processing --------------------------')
     files_exist, loaded_data = check_and_load_files(folder, HNL_id)
     if files_exist:
-        print('Using previously stored momentum data...')
+        print('Using previously stored pre-analysed momentum data...')
         momentum_prompt = loaded_data['momentum_prompt']
         momentum_displaced_plus = loaded_data['momentum_displaced_plus']
         momentum_displaced_minus = loaded_data['momentum_displaced_minus']
@@ -79,7 +79,7 @@ def HEPMC_data_processing(folder, HNL_id):
         momentum_neutrino = loaded_data['momentum_neutrino']
         momentum_HNL = loaded_data['momentum_HNL']
     else:
-        print('No previously stored momentum data - running analysis:')
+        print('No previously stored pre-analysed momentum data - running analysis:')
         def has_W_children(particle):
             return any(child.abs_pid == 24 and any(grandchild.abs_pid == HNL_id for grandchild in child.end_vertex.particles_out) for child in particle.children)
     

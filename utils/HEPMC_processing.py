@@ -30,7 +30,7 @@ def load_pickle_files(data_folder):
     return loaded_data
 
 
-def check_and_load_files(data_path, HNL_id):
+def check_and_load_files(data_path, pid_HNL):
     # Define the files to check based on the HNL_id
     files_to_check = [
         f"{data_path}/HEPMC/momentum_prompt.pkl",
@@ -108,12 +108,12 @@ def HEPMC_data_processing(folder, HNL_id):
         
             # Process events
             for event in events:
-                filtered_HNL             = filter_particles(event, [lambda p: p.abs_pid == HNL_id, has_W_children])
-                filtered_boson           = filter_particles(event, [lambda p: p.abs_pid == pid_boson, lambda p: has_particle_parent(p, HNL_id)])
-                filtered_displaced_plus  = filter_particles(event, [lambda p: p.pid == -pid_displaced_lepton, lambda p: has_particle_parent(p, HNL_id)])
-                filtered_displaced_minus = filter_particles(event, [lambda p: p.pid == pid_displaced_lepton, lambda p: has_particle_parent(p, HNL_id)])
+                filtered_HNL             = filter_particles(event, [lambda p: p.abs_pid == pid_HNL, has_W_children])
+                filtered_boson           = filter_particles(event, [lambda p: p.abs_pid == pid_boson, lambda p: has_particle_parent(p, pid_HNL)])
+                filtered_displaced_plus  = filter_particles(event, [lambda p: p.pid     == -pid_displaced_lepton, lambda p: has_particle_parent(p, pid_HNL)])
+                filtered_displaced_minus = filter_particles(event, [lambda p: p.pid     == pid_displaced_lepton, lambda p: has_particle_parent(p, pid_HNL)])
                 filtered_prompt          = filter_particles(event, [lambda p: p.abs_pid == pid_prompt_lepton, lambda p: has_particle_parent(p, pid_boson)])
-                filtered_neutrinos       = filter_particles(event, [lambda p: p.abs_pid == pid_neutrino, lambda p: has_particle_parent(p, HNL_id)])
+                filtered_neutrinos       = filter_particles(event, [lambda p: p.abs_pid == pid_neutrino, lambda p: has_particle_parent(p, pid_HNL)])
 
                 # Append filtered particles to their respective lists
                 momentum_HNL.append(filtered_HNL)

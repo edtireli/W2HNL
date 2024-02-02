@@ -16,8 +16,7 @@ def data_loading():
     elif data_type == 'HEPMC':
         (momentum_boson, momentum_HNL, momentum_prompt, 
         momentum_displaced_minus, momentum_displaced_plus, 
-        momentum_neutrino) = HEPMC_data_processing(data_path, HNL_id)
-    
-    
+        momentum_neutrino) = HEPMC_data_processing(data_path, pid_HNL)
+
     return momentum_boson, momentum_HNL, momentum_prompt, momentum_displaced_minus, momentum_displaced_plus, momentum_neutrino
 

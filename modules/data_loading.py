@@ -9,14 +9,10 @@ def data_loading():
     data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
 
     if data_type == 'LHE':
-        (momentum_boson, momentum_HNL, momentum_prompt, 
-        momentum_displaced_minus, momentum_displaced_plus, 
-        momentum_neutrino) = LHE_data_processing(data_path, batch_size, prompt_lepton_flavour)
+        momenta = LHE_data_processing(data_path, batch_size, prompt_lepton_flavour)
     
     elif data_type == 'HEPMC':
-        (momentum_boson, momentum_HNL, momentum_prompt, 
-        momentum_displaced_minus, momentum_displaced_plus, 
-        momentum_neutrino) = HEPMC_data_processing(data_path)
+        momenta = HEPMC_data_processing(data_path)
 
-    return momentum_boson, momentum_HNL, momentum_prompt, momentum_displaced_minus, momentum_displaced_plus, momentum_neutrino
+    return momenta
 

@@ -97,7 +97,7 @@ def HEPMC_data_processing(folder):
             return [particle for particle in event.particles if all(condition(particle) for condition in conditions)]
         
         event_files = sorted([f for f in os.listdir(os.path.join(folder, 'Events')) if f.endswith('.txt') and not f.startswith('.')])
-        number_of_events = len(HNL_mass)
+        number_of_events = len(mass_hnl)
         if number_of_events > 0:
             selected_file = event_files[0]
             with open(os.path.join(folder, 'Events', selected_file), 'r') as f:

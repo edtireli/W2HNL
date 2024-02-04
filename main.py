@@ -1,5 +1,4 @@
 from modules import *
-import os
 
 def main():
 

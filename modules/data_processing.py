@@ -1,7 +1,8 @@
+# Handling of data by converting to correct units (if need be) and performing the cuts as per the experimental parameters
+
 import numpy as np
 from parameters.data_parameters import *
 import matplotlib.pyplot as plt
-# Handling of data by converting to correct units (if need be) and performing the cuts as per the experimental parameters
 
 def unit_converter(initial_unit):
     """
@@ -45,7 +46,7 @@ class particle_batch:
     def __init__(self, momenta):
         self.momenta_dict = {
             'boson': momenta[0],
-            'HNL': momenta[1],
+            'hnl': momenta[1],
             'prompt': momenta[2],
             'displaced_minus': momenta[3],
             'displaced_plus': momenta[4],
@@ -79,10 +80,5 @@ def data_processing(momenta):
     momentum_neutrino) = momenta
 
     batch = particle_batch(momenta)
-
-    plt.title('W Boson z-momenta for HNL masses')
-    plt.hist(batch.mass('10 GeV').momentum('boson').pz(),histtype='step', bins=20, label ='10 GeV')
-    plt.hist(batch.mass('1 GeV').momentum('boson').pz(), histtype='step', bins=20, label ='1 GeV')
-    plt.legend()
-    plt.show()
-    return 0
+    
+    return batch

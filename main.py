@@ -6,13 +6,13 @@ def main():
     momenta = data_loading()
     
     # Processing of data and perfoming experimental cuts
-    data_processing(momenta)
+    batch_data = data_processing(momenta)
 
     # Computing N_events 
     computations()
 
     # Plots
-    plotting()
+    plotting(batch_data)
 
 if __name__ == '__main__':
     main()

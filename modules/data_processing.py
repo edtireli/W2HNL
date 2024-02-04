@@ -41,6 +41,21 @@ class MomentumComponents:
 
     def pz(self):
         return self.momenta[:, 3]
+    
+    def pT(self):
+        return np.sqrt(self.px()**2 + self.py()**2)
+    
+    def cut_pT(self, threshold):
+        """
+        Filter events where transverse momentum (pT) is below the threshold.
+        
+        :param threshold: float, the threshold for pT in GeV.
+        :return: A new instance of MomentumComponents with filtered events.
+        """
+        threshold_value = float(threshold.split()[0])  # Convert threshold string to float
+        mask = self.pT() >= threshold_value  # Create a mask for events above the threshold
+        filtered_momenta = self.momenta[mask]  # Apply mask to filter events
+        return MomentumComponents(filtered_momenta)
 
 class particle_batch:
     def __init__(self, momenta):
@@ -74,10 +89,6 @@ class particle_batch:
         return MomentumComponents(selected_momenta)
 
 def data_processing(momenta):
-
-    (momentum_boson, momentum_HNL, momentum_prompt, 
-    momentum_displaced_minus, momentum_displaced_plus, 
-    momentum_neutrino) = momenta
 
     batch = particle_batch(momenta)
     

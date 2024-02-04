@@ -137,5 +137,4 @@ def HEPMC_data_processing(folder):
         save_to_pickle(momentum_displaced_plus, 'momentum_displaced_plus', folder)
         save_to_pickle(momentum_neutrino, 'momentum_neutrino', folder)
 
-        
     return momentum_boson, momentum_HNL, momentum_prompt, momentum_displaced_minus, momentum_displaced_plus, momentum_neutrino

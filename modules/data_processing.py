@@ -1,4 +1,6 @@
+import numpy as np
 from parameters.data_parameters import *
+import matplotlib.pyplot as plt
 # Handling of data by converting to correct units (if need be) and performing the cuts as per the experimental parameters
 
 def unit_converter(initial_unit):
@@ -19,6 +21,56 @@ def unit_converter(initial_unit):
     # Perform conversion
     return number[0] / conversion_factors[unit[0]]
 
+class MomentumComponents:
+    def __init__(self, momenta):
+        """
+        Initialize with selected momentum array.
+        :param momenta: A numpy array of shape (events, 4) where each row contains (E, px, py, pz).
+        """
+        self.momenta = momenta
+
+    def E(self):
+        return self.momenta[:, 0]
+
+    def px(self):
+        return self.momenta[:, 1]
+
+    def py(self):
+        return self.momenta[:, 2]
+
+    def pz(self):
+        return self.momenta[:, 3]
+
+class particle_batch:
+    def __init__(self, momenta):
+        self.momenta_dict = {
+            'boson': momenta[0],
+            'HNL': momenta[1],
+            'prompt': momenta[2],
+            'displaced_minus': momenta[3],
+            'displaced_plus': momenta[4],
+            'neutrino': momenta[5],
+        }
+        self.mass_hnl = mass_hnl  # Ensure this is defined elsewhere, e.g., a list of HNL mass values
+        self.selected_mass_index = None
+
+    def mass(self, mass):
+        mass_value = float(mass.split()[0])
+        if mass_value in self.mass_hnl:
+            self.selected_mass_index = self.mass_hnl.index(mass_value)
+            return self
+        else:
+            raise ValueError("Mass not found in the dataset.")
+
+    def momentum(self, particle_type):
+        if self.selected_mass_index is None:
+            raise ValueError("HNL mass must be selected before retrieving momenta.")
+        if particle_type not in self.momenta_dict:
+            raise ValueError(f"Particle type '{particle_type}' not recognized.")
+        
+        # Retrieve and return momentum components for the specified particle
+        selected_momenta = self.momenta_dict[particle_type][self.selected_mass_index]
+        return MomentumComponents(selected_momenta)
 
 def data_processing(momenta):
 
@@ -26,6 +78,11 @@ def data_processing(momenta):
     momentum_displaced_minus, momentum_displaced_plus, 
     momentum_neutrino) = momenta
 
-    HNL_mass
-    
+    batch = particle_batch(momenta)
+
+    plt.title('W Boson z-momenta for HNL masses')
+    plt.hist(batch.mass('10 GeV').momentum('boson').pz(),histtype='step', bins=20, label ='10 GeV')
+    plt.hist(batch.mass('1 GeV').momentum('boson').pz(), histtype='step', bins=20, label ='1 GeV')
+    plt.legend()
+    plt.show()
     return 0

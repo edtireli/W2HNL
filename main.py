@@ -4,7 +4,7 @@ def main():
 
     # Loading of simulated data (LHE/HEPMC)
     momenta = data_loading()
-
+    
     # Processing of data and perfoming experimental cuts
     data_processing(momenta)
 

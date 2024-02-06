@@ -115,6 +115,35 @@ class ParticleBatch:
         # Instead of filtering selected_momenta, return the survival_mask
         return survival_mask
     
+    def apply_mask(self, mask):
+        """
+        Apply a survival mask to the selected momenta.
+
+        :param mask: A boolean array representing survival of particles.
+        :return: Self for method chaining.
+        """
+        if self.selected_momenta is None:
+            raise ValueError("No momenta selected.")
+        # Apply the mask
+        self.selected_momenta = self.selected_momenta[mask]
+        return self
+    
+    def eta(self):
+        """
+        Calculate the pseudorapidity of the selected particles.
+
+        :return: A numpy array containing the pseudorapidity values of the selected particles.
+        """
+        if self.selected_momenta is None:
+            raise ValueError("Particle type and mass must be selected before computing pseudorapidity.")
+        pz = self.pz()  # Assuming self.pz() returns the z-component of momentum
+        pt = self.pT()  # Assuming self.pT() returns the transverse momentum
+        p = np.sqrt(pt**2 + pz**2)  # Magnitude of the momentum vector
+        # Avoid division by zero or log of zero by adding a small number epsilon
+        epsilon = 1e-9
+        eta = -np.log(np.tan(np.arctan2(pt, pz) / 2) + epsilon)
+        return eta
+    
     def find_tau(self, m_HNL, angle_sq, flavour):
         """
         Calculate the lifetime of an HNL in its rest frame.

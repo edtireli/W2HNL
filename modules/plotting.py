@@ -25,7 +25,7 @@ def momentum_distribution(batch, batch_mass='1 GeV'):
     plt.show()
 
 
-def plot_histograms(data_list, title, x_label, y_label):
+def plot_histograms(data_list, title, x_label, y_label, savename=''):
     """
     Plots a series of histograms with dynamic inputs.
 
@@ -42,12 +42,14 @@ def plot_histograms(data_list, title, x_label, y_label):
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.yscale('log')
-    plt.grid(True, which="both", ls="--")
+    plt.grid(True, which="both", ls="--", alpha=0.25)
 
     for entry in data_list:
         plt.hist(entry['data'], histtype='step', bins=40, label=entry['label'], linestyle=entry.get('linestyle', '-'))
 
     plt.legend()
+    if savename != '':
+        save_plot(savename)
     plt.show()
 
 
@@ -219,14 +221,43 @@ def plotting(momenta, batch, production_arrays, arrays):
         {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('hnl').pT()), 'label': '$N$','linestyle': '-'},
         {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('prompt').pT()), 'label': '$\\tau$','linestyle': '--'},
     ]
-
     plot_histograms(
         data_list=dv_plot_data,
         title='Transverse momentum distribution from 7 GeV HNLs',
         x_label='pT (GeV)',
-        y_label='Frequency'
+        y_label='Frequency',
+        savename='pT_distribution'
     )
 
+
+
+    eta_plot_data = [
+        {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').eta(), 'label': '$\\mu^-$','linestyle': '-'},
+        {'data': ParticleBatch(momenta).mass('7 GeV').particle('boson').eta(), 'label': '$W^\\pm$', 'linestyle': '--'},
+        {'data': ParticleBatch(momenta).mass('7 GeV').particle('hnl').eta(), 'label': '$N$','linestyle': '-'},
+        {'data': ParticleBatch(momenta).mass('7 GeV').particle('prompt').eta(), 'label': '$\\tau$','linestyle': '--'},
+    ]
+    plot_histograms(
+        data_list=eta_plot_data,
+        title='Pseudorapidity distribution from 7 GeV HNLs',
+        x_label='$\\eta$',
+        y_label='Frequency',
+        savename='pseudorapidity_distribution'
+    )
+
+
+    rapidity_mask = ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').cut_rap()
+    eta_plot_data = [
+        {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').eta(), 'label': '$\\mu^-$','linestyle': '-'},
+        {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').apply_mask(rapidity_mask).eta(), 'label': '$\\mu^-$ ($\\eta$-cut)','linestyle': '--'},
+    ]
+    plot_histograms(
+        data_list=eta_plot_data,
+        title='Pseudorapidity distribution from 7 GeV HNLs',
+        x_label='$\\eta$',
+        y_label='Frequency',
+        savename=''
+    )
     #plot_survival_3d(survival_dv_displaced, 'DV cut')
     #plot_survival_2d([survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced], ['$p_T$ cut', '$\\eta$ cut', 'm_0 cut', '$\Delta_R$ cut'])
 

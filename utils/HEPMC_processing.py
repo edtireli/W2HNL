@@ -76,7 +76,6 @@ def save_to_pickle(data, name, data_folder):
 def HEPMC_data_processing(folder):
     files_exist, loaded_data = check_and_load_files(folder)
     if files_exist:
-        print('Using previously stored pre-analysed momentum data...')
         momentum_prompt = loaded_data['momentum_prompt']
         momentum_displaced_plus = loaded_data['momentum_displaced_plus']
         momentum_displaced_minus = loaded_data['momentum_displaced_minus']

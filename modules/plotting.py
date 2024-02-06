@@ -6,6 +6,7 @@ from modules.data_processing import *
 from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
 
 def momentum_distribution(batch, batch_mass='1 GeV'):
     bin_number = 40
@@ -22,20 +23,6 @@ def momentum_distribution(batch, batch_mass='1 GeV'):
     plt.legend()
     plt.show()
 
-def momentum_cut_comparison(batch, batch_mass='1 GeV', particle_name='displaced_minus', pT_cut_condition = '5 GeV'):
-    bin_number = 40
-    unfiltered_events = abs(batch.mass(batch_mass).particle(particle_name).pT())
-    filtered_events   = abs(batch.mass(batch_mass).particle(particle_name).cut_pT(pT_cut_condition).pT())
-    print(f'Survival probability = {len(filtered_events)/len(unfiltered_events)}')
-
-    plt.title(f'Transverse momentum distribution for {batch_mass} HNL events')
-    plt.ylabel('Frequency')
-    plt.xlabel('Transverse momentum (GeV)')
-    plt.hist(unfiltered_events, histtype='step', bins=bin_number, label ='Unfiltered events', linestyle='-')
-    plt.hist(filtered_events, histtype='step', bins=bin_number, label ='Filtered events', linestyle='-')
-    plt.yscale('log')
-    plt.legend()
-    plt.show()
 
 def plot_histograms(data_list, title, x_label, y_label):
     """
@@ -61,7 +48,6 @@ def plot_histograms(data_list, title, x_label, y_label):
 
     plt.legend()
     plt.show()
-
 
 
 
@@ -132,34 +118,91 @@ def plot_parameter_space_region(production_allcuts):
 
     plt.figure(figsize=(10, 6))
     
-    levels = np.linspace(0, values.max(), 100) # for continuous use np.linspace(0, values.max(), 100) and for discrete use np.array([0, production_minimum, values.max()])
+    levels = np.linspace(0, values.max(), 5) # for continuous use np.linspace(0, values.max(), 100) and for discrete use np.array([0, production_minimum, values.max()])
     contour_filled = plt.contourf(mass_grid, mixing_grid, production_grid, levels=levels, extend='max', cmap='Greens')
     plt.colorbar(contour_filled, label='Production')
 
     # Highlight the region where production meets or exceeds the minimum threshold
     # Assuming production_minimum is the value above which the region is highlighted
     contour = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum], colors='red', linewidths=2, linestyles='-')
+
+    plt.text(mass_grid.max()-5, mixing_grid.max()-5, f'Production > {production_minimum}', color='red', fontsize=10, backgroundcolor='white')
     plt.clabel(contour, inline=True, fontsize=8)
 
     plt.xscale('linear')
     plt.yscale('log')
-    plt.xlabel('HNL Mass (GeV)')
-    plt.ylabel('Mixing')
-    plt.title(f'Parameter Space Region with HNL Production > {production_minimum}')
+    plt.xlabel('HNL Mass, $M_N$ (GeV)')
+    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$')
+    plt.grid(alpha=0.25)
+    plt.title(f'HNL production parameter space')
 
     plt.show()
 
-def plotting(momenta, batch, production_allcuts, arrays):
+def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, smooth=False, sigma=1):
+    """
+    Plot multiple production arrays on the same parameter space with contours.
+
+    :param production_arrays: Unpacked tuple of production arrays.
+    :param labels: Optional list of labels for each production array's contour.
+    :param colors: Optional list of colors for each contour line.
+    :param smooth: Apply Gaussian smoothing to the last production array.
+    :param sigma: Standard deviation for Gaussian kernel if smoothing is applied.
+    """
+    mass_grid, mixing_grid = np.meshgrid(
+        np.linspace(min(mass_hnl), max(mass_hnl), 100),
+        np.logspace(np.log10(min(mixing)), np.log10(max(mixing)), 100)
+    )
+
+    plt.figure(figsize=(10, 6))
+
+    if labels is None:
+        labels = [f'Contour {i+1}' for i in range(len(production_arrays))]
+    if colors is None:
+        colors = plt.cm.jet(np.linspace(0, 1, len(production_arrays)))
+
+    for i, production_array in enumerate(production_arrays):
+        if smooth and i == len(production_arrays) - 1:  # Apply smoothing to the last array if smooth is True
+            values = gaussian_filter(production_array, sigma=sigma).flatten()
+        else:
+            values = production_array.flatten()
+
+        production_grid = griddata(
+            (np.repeat(mass_hnl, len(mixing)), np.tile(mixing, len(mass_hnl))),
+            values,
+            (mass_grid, mixing_grid),
+            method='linear'
+        )
+
+        contour = plt.contour(
+            mass_grid, mixing_grid, production_grid,
+            levels=[production_minimum],
+            colors=[colors[i]],
+            linewidths=2,
+            linestyles='-'
+        )
+
+        # Plot invisible line for legend entry
+        plt.plot([], [], color=colors[i], linewidth=2, linestyle='-', label=labels[i])
+
+    plt.legend(loc='upper right', frameon=True)
+    plt.xscale('linear')
+    plt.yscale('log')
+    plt.xlabel('HNL Mass, $M_N$ (GeV)')
+    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$')
+    plt.title('HNL Production Parameter Space')
+    plt.grid(alpha=0.25)
+    plt.show()
+
+def mean_from_2d_survival(arr):
+    temp_array = [np.mean(i) for i in arr]
+    return temp_array
+
+def plotting(momenta, batch, production_arrays, arrays):
     print('------------------------------- Plotting ----------------------------')
 
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
-
-    #momentum_distribution(batch,'1 GeV')
-    #momentum_distribution(batch,'10 GeV')
-
-    #momentum_cut_comparison(batch, '1 GeV', 'displaced_minus', pT_cut_condition='5 GeV')
-    #momentum_cut_comparison(batch, '10 GeV', 'displaced_minus', pT_cut_condition='5 GeV')
-
+    production_allcuts, production_pT, production_rap, production_invmass, production__pT_rap, production__pT_rap_invmass = production_arrays
+    
     dv_plot_data = [
         {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').pT()), 'label': '$\\mu^-$','linestyle': '-'},
         {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('boson').pT()), 'label': '$W^\\pm$', 'linestyle': '--'},
@@ -180,4 +223,6 @@ def plotting(momenta, batch, production_allcuts, arrays):
 
     #plot_survival_3d(combined_survival, '(DV $\cdot$ $\\eta \cdot p_T \cdot \Delta_R \cdot m_0$) cut')
     plot_parameter_space_region(production_allcuts)
+    plot_parameter_space_regions(production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'black'], smooth=True, sigma=1) 
+
     return 0

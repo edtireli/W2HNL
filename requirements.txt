@@ -4,3 +4,4 @@ pyhepmc
 pickle
 termcolor
 hashlib
+matplotlib

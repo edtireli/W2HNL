@@ -4,7 +4,7 @@ from utils.HEPMC_processing import *
 from parameters.data_parameters import *
 
 def data_loading():
-    
+    print('----------------------------- Data loading ---------------------------')
     current_directory = os.getcwd()                                         # Current path
     data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
 

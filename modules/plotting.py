@@ -211,7 +211,7 @@ def save_plot(name, dpi=200):
 def plotting(momenta, batch, production_arrays, arrays):
     print('------------------------------- Plotting ----------------------------')
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
-    production_allcuts, production_pT, production_rap, production_invmass, production__pT_rap, production__pT_rap_invmass = production_arrays
+    production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production__pT_rap, production__pT_rap_invmass = production_arrays
     
     dv_plot_data = [
         {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').pT()), 'label': '$\\mu^-$','linestyle': '-'},
@@ -233,6 +233,6 @@ def plotting(momenta, batch, production_arrays, arrays):
 
     #plot_survival_3d(combined_survival, '(DV $\cdot$ $\\eta \cdot p_T \cdot \Delta_R \cdot m_0$) cut')
     plot_parameter_space_region(production_allcuts)
-    plot_parameter_space_regions(production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'black'], smooth=True, sigma=1) 
+    plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 
 
     return 0

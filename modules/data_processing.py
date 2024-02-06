@@ -33,6 +33,12 @@ def unit_converter(initial_unit):
     # Perform conversion
     return number[0] / conversion_factors[unit[0]]
 
+def invmass_rdv_efficiency(r_dv, m_dv):
+    y1 = (-7/110) * r_dv * nat_to_m() * 1e3 + 180/11
+    y2 = 3
+    return int(m_dv >= y1 and m_dv >= y2)
+
+
 class ParticleBatch:
     def __init__(self, momenta):
         self.momenta_dict = {
@@ -276,6 +282,28 @@ class ParticleBatch:
         delta_phi = np.where(delta_phi > np.pi, delta_phi - 2*np.pi, delta_phi)
         delta_phi = np.where(delta_phi < -np.pi, delta_phi + 2*np.pi, delta_phi)
         return delta_phi
+    
+    def cut_invmass_nontrivial(self, angle_sq, cut_type, dv_min, dv_max_long, dv_max_trans):
+        if self.selected_mass_index is None or self.current_particle_type is None:
+            raise ValueError("Both HNL mass and particle type must be selected before applying non-trivial invariant mass cut.")
+
+        p_lab = self.selected_momenta
+        HNLMass = self.mass_hnl[self.selected_mass_index]
+        g_lab = p_lab[:, 0] / HNLMass
+        tau = self.find_tau(HNLMass, angle_sq, flavour_hnl)
+        td_lab = g_lab * np.random.exponential(tau, size=len(p_lab))
+        rd_lab = (p_lab[:, 1:4].T * (td_lab / p_lab[:, 0])).T
+        rd_lab_norm = np.linalg.norm(rd_lab, axis=1)
+        
+        p_minus = self.momenta_dict['displaced_minus'][self.selected_mass_index]
+        p_plus = self.momenta_dict['displaced_plus'][self.selected_mass_index]
+        p_sum = p_minus + p_plus
+        invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, np.diag([1, -1, -1, -1])), p_sum))
+        
+        # Apply non-trivial invariant mass cut based on rd_lab_norm (distance) and invariant_masses
+        survival_mask = np.array([invmass_rdv_efficiency(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
+
+        return survival_mask
 
 
 def survival_pT(particle_type, momentum):
@@ -312,6 +340,18 @@ def survival_dv(momentum=1):
 
     return survival_bool
 
+def survival_invmass_nontrivial(momentum=1):
+    # Initialize an array to hold the survival status for each particle across all masses and mixings
+    survival_bool = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
+
+    for i, mass in enumerate(mass_hnl):
+        for j, mix in enumerate(mixing):
+            batch = ParticleBatch(momentum)
+            # Apply the DV cut for each mass and mixing scenario
+            survival_mask = batch.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+            survival_bool[i, j, :] = survival_mask
+
+    return survival_bool
 
 
 def survival_rap(particle_type, momentum):
@@ -374,9 +414,13 @@ def data_processing(momenta):
     print('Computing cut: Pseudorapidity')
     survival_rap_displaced = survival_rap(particle_type='displaced_minus', momentum=momenta) * survival_rap(particle_type='displaced_plus', momentum=momenta)
     
-    print('Computing cut: Invariant mass')
-    survival_invmass_displaced = survival_invmass(invmass_minimum, momentum=momenta)
-    
+    if invmass_cut_type == 'nontrivial':
+        print('Computing cut: Invariant mass (nontrivial)')
+        survival_invmass_displaced = survival_invmass_nontrivial(momentum=momenta)
+    else:
+        print('Computing cut: Invariant mass')
+        survival_invmass_displaced = survival_invmass(invmass_minimum, momentum=momenta)
+        
     print('Computing cut: Angular seperation')
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
     
@@ -385,6 +429,6 @@ def data_processing(momenta):
     
     arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
               np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
-              np.array(survival_deltaR_displaced)
+              np.array(survival_deltaR_displaced), 
      ) # defining a tuple for easier management of survival arrays on main
     return batch, arrays

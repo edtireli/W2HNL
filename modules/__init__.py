@@ -10,6 +10,7 @@ from .plotting import *
 from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 
+from utils.hnl import *
 from utils.random import *
 from utils.LHE_processing import *
 from utils.HEPMC_processing import *

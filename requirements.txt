@@ -5,3 +5,4 @@ pickle
 termcolor
 hashlib
 matplotlib
+scikit-hep

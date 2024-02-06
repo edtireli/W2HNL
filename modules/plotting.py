@@ -2,6 +2,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+from modules.data_loading import *
 from modules.data_processing import *
 from parameters.data_parameters import *
 from parameters.experimental_parameters import *
@@ -131,11 +132,11 @@ def plot_parameter_space_region(production_allcuts):
 
     plt.xscale('linear')
     plt.yscale('log')
-    plt.xlabel('HNL Mass, $M_N$ (GeV)')
-    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$')
+    plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
+    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
     plt.grid(alpha=0.25)
     plt.title(f'HNL production parameter space')
-
+    save_plot('hnl_production_parameter_space_contour')
     plt.show()
 
 def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, smooth=False, sigma=1):
@@ -187,19 +188,28 @@ def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, s
     plt.legend(loc='upper right', frameon=True)
     plt.xscale('linear')
     plt.yscale('log')
-    plt.xlabel('HNL Mass, $M_N$ (GeV)')
-    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$')
+    plt.xlabel('HNL Mass, $M_N$ (GeV)', size = 12)
+    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size = 12)
     plt.title('HNL Production Parameter Space')
     plt.grid(alpha=0.25)
+    save_plot('hnl_production_parameter_space_multi')
     plt.show()
 
 def mean_from_2d_survival(arr):
     temp_array = [np.mean(i) for i in arr]
     return temp_array
 
+def save_plot(name, dpi=200):
+    current_directory = os.getcwd()                                         # Current path
+    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    plot_path         = os.path.join(data_path, 'Plots', f'{name}.png')
+    os.makedirs(os.path.join(data_path, 'Plots'), exist_ok=True) # Making directory if not already exists
+
+    plt.savefig(plot_path, dpi=dpi)
+    print(f"Plot saved to {plot_path}")
+    
 def plotting(momenta, batch, production_arrays, arrays):
     print('------------------------------- Plotting ----------------------------')
-
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
     production_allcuts, production_pT, production_rap, production_invmass, production__pT_rap, production__pT_rap_invmass = production_arrays
     

@@ -1,6 +1,7 @@
 import os
 import pickle 
 import pyhepmc 
+from termcolor import colored
 from modules.data_loading import * 
 from parameters.data_parameters import * 
 from parameters.experimental_parameters import *
@@ -57,7 +58,7 @@ def check_and_load_files(data_path):
     
     return False, None  # If not all files exist, return a flag indicating failure and no data
 
-def save_to_pickle(data, name, data_folder):
+def save_to_pickle(data, name='str', data_folder='str'):
     # Construct the full path for the directory where the pickle file will be saved
     directory_path = os.path.join(data_folder, 'HEPMC')
     
@@ -83,7 +84,7 @@ def HEPMC_data_processing(folder):
         momentum_neutrino = loaded_data['momentum_neutrino']
         momentum_HNL = loaded_data['momentum_HNL']
     else:
-        print('No previously stored pre-analysed momentum data - running analysis:')
+        print(colored('No previously stored pre-analysed momentum data. Running...', 'white'))
         def has_W_children(particle):
             return any(child.abs_pid == pid_boson and any(grandchild.abs_pid == pid_HNL for grandchild in child.end_vertex.particles_out) for child in particle.children)
     
@@ -114,11 +115,11 @@ def HEPMC_data_processing(folder):
             for event in events:
                 filtered_HNL             = filter_particles(event, [lambda p: p.abs_pid == pid_HNL, has_W_children])
                 filtered_boson           = filter_particles(event, [lambda p: p.abs_pid == pid_boson, lambda p: has_particle_parent(p, pid_HNL)])
-                filtered_displaced_plus  = filter_particles(event, [lambda p: p.pid     == -pid_displaced_lepton, lambda p: has_particle_parent(p, pid_HNL)])
-                filtered_displaced_minus = filter_particles(event, [lambda p: p.pid     == pid_displaced_lepton, lambda p: has_particle_parent(p, pid_HNL)])
+                filtered_displaced_plus  = filter_particles(event, [lambda p: p.pid     == -pid_displaced_lepton, lambda p: has_particle_parent(p, -pid_HNL)])
+                filtered_displaced_minus = filter_particles(event, [lambda p: p.pid     == pid_displaced_lepton, lambda p: has_particle_parent(p, -pid_HNL)])
                 filtered_prompt          = filter_particles(event, [lambda p: p.abs_pid == pid_prompt_lepton, lambda p: has_particle_parent(p, pid_boson)])
-                filtered_neutrinos       = filter_particles(event, [lambda p: p.abs_pid == pid_neutrino, lambda p: has_particle_parent(p, pid_HNL)])
-
+                filtered_neutrinos       = filter_particles(event, [lambda p: p.abs_pid == pid_neutrino, lambda p: has_particle_parent(p, -pid_HNL)])
+                
                 # Append filtered particles to their respective lists
                 momentum_HNL.append(filtered_HNL)
                 momentum_prompt.append(filtered_prompt)
@@ -126,7 +127,7 @@ def HEPMC_data_processing(folder):
                 momentum_displaced_plus.append(filtered_displaced_plus)
                 momentum_boson.append(filtered_boson)
                 momentum_neutrino.append(filtered_neutrinos)
-        
+
         # Saving the files as pickle files so that HEPMC no longer is used
         save_to_pickle(momentum_boson, 'momentum_boson', folder)
         save_to_pickle(momentum_HNL, 'momentum_HNL', folder)

@@ -1,0 +1,6 @@
+numpy
+scipy
+pyhepmc
+pickle
+termcolor
+hashlib

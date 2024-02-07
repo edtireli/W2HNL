@@ -1,7 +1,6 @@
 from modules import *
 
 def main():
-
     # Loading of simulated data (LHE/HEPMC)
     momenta = data_loading()
     

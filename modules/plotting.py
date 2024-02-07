@@ -10,7 +10,7 @@ from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter
 
 def momentum_distribution(batch, batch_mass='1 GeV'):
-    bin_number = 40
+    bin_number = 100
     plt.title(f'Transverse momentum distribution for {batch_mass} HNL events')
     plt.ylabel('Frequency')
     plt.xlabel('Transverse momentum (GeV)')
@@ -25,9 +25,9 @@ def momentum_distribution(batch, batch_mass='1 GeV'):
     plt.show()
 
 
-def plot_histograms(data_list, title, x_label, y_label, savename=''):
+def plot_histograms(data_list, title, x_label, y_label, savename='', bin_number=100):
     """
-    Plots a series of histograms with dynamic inputs.
+    Plots a series of histograms with dynamic inputs ensuring the same bin widths for all histograms.
 
     :param data_list: A list of dictionaries, each containing:
                       - 'data': The array of data points to plot.
@@ -44,8 +44,15 @@ def plot_histograms(data_list, title, x_label, y_label, savename=''):
     plt.yscale('log')
     plt.grid(True, which="both", ls="--", alpha=0.25)
 
+    # Find global min and max
+    global_min = min(entry['data'].min() for entry in data_list)
+    global_max = max(entry['data'].max() for entry in data_list)
+
+    # Create uniform bin edges
+    bins = np.linspace(global_min, global_max, bin_number+1)
+
     for entry in data_list:
-        plt.hist(entry['data'], histtype='step', bins=40, label=entry['label'], linestyle=entry.get('linestyle', '-'))
+        plt.hist(entry['data'], bins=bins, histtype='step', label=entry['label'], linestyle=entry.get('linestyle', '-'))
 
     plt.legend()
     if savename != '':

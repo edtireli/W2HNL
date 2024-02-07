@@ -231,7 +231,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     plot_histograms(
         data_list=dv_plot_data,
         title='Transverse momentum distribution from 7 GeV HNLs',
-        x_label='pT (GeV)',
+        x_label='$p_T$ (GeV)',
         y_label='Frequency',
         savename='pT_distribution'
     )
@@ -252,7 +252,6 @@ def plotting(momenta, batch, production_arrays, arrays):
         savename='pseudorapidity_distribution'
     )
 
-
     rapidity_mask = ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').cut_rap()
     eta_plot_data = [
         {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').eta(), 'label': '$\\mu^-$','linestyle': '-'},
@@ -263,8 +262,10 @@ def plotting(momenta, batch, production_arrays, arrays):
         title='Pseudorapidity distribution from 7 GeV HNLs',
         x_label='$\\eta$',
         y_label='Frequency',
-        savename=''
+        savename='pseudorapidity_distribution_with_cut'
     )
+
+    
     #plot_survival_3d(survival_dv_displaced, 'DV cut')
     #plot_survival_2d([survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced], ['$p_T$ cut', '$\\eta$ cut', 'm_0 cut', '$\Delta_R$ cut'])
 

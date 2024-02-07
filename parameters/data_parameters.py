@@ -1,12 +1,9 @@
-import numpy as np
-
 data_folder = 'w2tau_@1$' # Folder name containing MadGraph data
 prompt_lepton_flavour = 3 # 1 = electron, 2 = muon, 3 = tau
 
 data_type = 'HEPMC' # Either "HEPMC" or "LHE" format
 
 mass_hnl = [i*0.5 for i in range(2,21)] # HNL masses from data in GeV
-mixing = np.logspace(0,-8,200)
 
 flavour_hnl = 3 # 1=e, 2=mu, 3=tau
 batch_size = 9999 # Number of events generated per run (mass) in MadGraph

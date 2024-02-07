@@ -73,8 +73,6 @@ def computations(momenta, batch, arrays):
 
     # Combine survivals with proper broadcasting
     if invmass_cut_type == 'nontrivial':
-        print(np.shape(survival_dv_displaced))
-        print(np.shape(survival_invmass_displaced))
         combined_survival = survival_dv_displaced * survival_invmass_displaced
     else:
         combined_survival = survival_dv_displaced

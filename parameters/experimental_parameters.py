@@ -1,8 +1,9 @@
 # A parameter file for various dimensions and variables to do with the experimental constraints, such as cut conditions, efficiencies etc.
+import numpy as np 
 
 pT_minimum = '5 GeV' # Minimum transverse momentum
 invmass_minimum = '5 GeV' # Needs implementation for more complex approach
-invmass_cut_type = 'trivial' # nontrivial to consider piecewise function, trivial to consider a flat value that uses the above invmass_minimum regardless of r_dv
+invmass_cut_type = 'nontrivial' # nontrivial to consider piecewise function, trivial to consider a flat value that uses the above invmass_minimum regardless of r_dv
 deltaR_minimum = 0.05 # Minimum angular seperation
 
 pseudorapidity_minimum = 0   # Minimum pseudorapidity criteria for HNL decay 
@@ -15,3 +16,4 @@ r_max_l = '6.5 m' # Maximum distance from interaction point (IP) to consider HNL
 luminosity = 300 # 1/fb
 production_minimum = 3 # The minimum number of HNLs produced within the parameter region to consider it a success (production_minimum = 3 for 95% CL)
 
+mixing = np.logspace(0,-8,200)

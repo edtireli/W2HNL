@@ -673,6 +673,6 @@ if __name__ == '__main__':
 	#prompt1a = float(input('[!] Enter HNL mixing (e): ') )
 	#prompt1b = float(input('[!] Enter HNL mixing (mu): ') )
 	#prompt1c = float(input('[!] Enter HNL mixing (tau): ') )
-	#b = HNL(prompt0,[prompt1a,prompt1b,prompt1c],True)
-	#print(b.NDecayWidth())
+	b = HNL(10,[0,0,1],True)
+	print(b.NDecayWidth())
 		

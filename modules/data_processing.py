@@ -204,7 +204,7 @@ class ParticleBatch:
         else:
             raise ValueError("Invalid cut type specified.")
 
-        return survival_mask, rd_lab
+        return survival_mask, rd_lab, td, g_lab
 
     
     def cut_rap(self):
@@ -360,16 +360,18 @@ def survival_dv(momentum=1):
     # Initialize arrays to hold the survival status and decay vertices for each particle across all masses and mixings
     survival_bool = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
     rd_labs = np.zeros((len(mass_hnl), len(mixing), batch_size, 3))  # rd_lab is a 3D vector
-
+    lifetimes_rest = np.zeros((len(mass_hnl), len(mixing), batch_size))
+    lorentz_factors = np.zeros((len(mass_hnl), len(mixing), batch_size))
     for i, mass in enumerate(mass_hnl):
         for j, mix in enumerate(mixing):
             batch = ParticleBatch(momentum)
             # Apply the DV cut for each mass and mixing scenario and get decay vertices
-            survival_mask, rd_lab = batch.mass(mass).particle('hnl').cut_dv(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+            survival_mask, rd_lab, td, g_lab = batch.mass(mass).particle('hnl').cut_dv(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
             survival_bool[i, j, :] = survival_mask
             rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
-
-    return survival_bool, rd_labs
+            lifetimes_rest[i, j, :] = td
+            lorentz_factors[i, j, :] = g_lab
+    return survival_bool, rd_labs,lifetimes_rest, lorentz_factors
 
 
 def survival_invmass_nontrivial(momentum=1):
@@ -457,10 +459,11 @@ def data_processing(momenta):
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
     
     print('Computing cut: Displaced vertex')
-    survival_dv_displaced, r_lab = survival_dv(momentum=momenta)
+    survival_dv_displaced, r_lab, lifetimes_rest, lorentz_factors = survival_dv(momentum=momenta)
     
     arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
               np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
-              np.array(survival_deltaR_displaced), np.array(r_lab)
+              np.array(survival_deltaR_displaced), 
+              np.array(r_lab), np.array(lifetimes_rest), np.array(lorentz_factors)
      ) # defining a tuple for easier management of survival arrays on main
     return batch, arrays

@@ -44,7 +44,7 @@ def compute_production_efficiency(production_nocuts, survivals, survival_dv_disp
 
 def computations(momenta, batch, arrays):
     print('----------------------- Computing HNL production --------------------')
-    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab = arrays
+    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
 
     print('     Invariant mass survival: ', np.mean(survival_invmass_displaced)) # Validated for trivial case
     print('     Pseudorapidity survival: ', np.mean(survival_rap_displaced)) # A bit high (because we use simple pseudorapidity)

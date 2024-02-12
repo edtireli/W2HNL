@@ -14,6 +14,10 @@ import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from ipywidgets import interact
 
+
+# Dynamic plot (Web hosted 3d lab frame decay vertex plot with daughters as arrows)
+dynamic_plot = False
+
 def enable_close_with_esc_key(fig):
     """
     Allows closing the figure window by pressing the Escape key.
@@ -43,7 +47,7 @@ def momentum_distribution(batch, batch_mass='1 GeV'):
     plt.show()
 
 
-def plot_histograms(data_list, title, x_label, y_label, savename='', bin_number=100):
+def plot_histograms(data_list, title, x_label, y_label, savename='', bin_number=100, logplot=True):
     """
     Plots a series of histograms with dynamic inputs ensuring the same bin widths for all histograms.
 
@@ -59,7 +63,8 @@ def plot_histograms(data_list, title, x_label, y_label, savename='', bin_number=
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
-    plt.yscale('log')
+    if logplot:
+        plt.yscale('log')
     plt.grid(True, which="both", ls="--", alpha=0.25)
 
     # Find global min and max
@@ -371,14 +376,14 @@ def plot_production_heatmap(production, title='Production Rates', savename=''):
     # ax.set_yscale('log')
 
     if savename:
-        plt.savefig(savename)
+        save_plot(savename)
 
     plt.show()
 
 
 def plotting(momenta, batch, production_arrays, arrays):
     print('------------------------------- Plotting ----------------------------')
-    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab = arrays
+    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
     production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass = production_arrays
     
     dv_plot_data = [
@@ -424,14 +429,47 @@ def plotting(momenta, batch, production_arrays, arrays):
         savename='pseudorapidity_distribution_with_cut'
     )
 
+
+    index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
+    lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing], 'label': '$\\tau_N$','linestyle': '-'}]
+    print(np.mean(lifetimes_rest[index_mass,index_mixing]))
+    plot_histograms(
+        data_list=lifetime_data, 
+        title=f'Distribution of HNL lifetimes in rest frame for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
+        x_label='1/GeV',
+        y_label='Frequency',
+        savename='HNL_proper_time'
+    )
+
+    lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing]*lorentz_factors[index_mass,index_mixing]*nat_to_m(), 'label': '$\\tau_N$','linestyle': '-'}]
+    plot_histograms(
+        data_list=lifetime_data, 
+        title=f'Distribution of HNL lab decay distances for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
+        x_label='m',
+        y_label='Frequency',
+        savename='HNL_decay_distance_lab'
+    )
+
+    lorentz_factor_data =[{'data': lorentz_factors[index_mass,index_mixing], 'label': '$\\gamma_N$','linestyle': '-'}]
+    plot_histograms(
+        data_list=lorentz_factor_data,
+        title=f'Distribution of HNL Lorentz factors in rest frame for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
+        x_label='$\gamma$',
+        y_label='Frequency',
+        savename='Lorentz_factor'
+    )
+
     plot_parameter_space_region(production_allcuts)
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 
 
     index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
     index_mass_best, index_mixing_best = find_best_survival_indices(survival_dv_displaced)
-    plot_decay_vertices_with_trajectories(r_lab, survival_dv_displaced,batch, index_mass_best,index_mixing_best, title=f'Surviving Decay Vertices in 3D Space for $M_N=${mass_hnl[index_mass_best]}, $\\Theta_\\tau^2 ≈$ {mixing[index_mixing_best]}')
+    if dynamic_plot:
+        plot_decay_vertices_with_trajectories(r_lab, survival_dv_displaced,batch, index_mass_best,index_mixing_best, title=f'Surviving Decay Vertices in 3D Space for $M_N=${mass_hnl[index_mass_best]}, $\\Theta_\\tau^2 ≈$ {mixing[index_mixing_best]}')
     
     #plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')
     #plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
     #plot_production_heatmap(production_dv, title='Production Rates (DV cut)', savename='production_dvcut')
     return 0
+
+    #print(HNL(10,[0,0,1],True).NDecayWidth())

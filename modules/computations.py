@@ -44,7 +44,7 @@ def compute_production_efficiency(production_nocuts, survivals, survival_dv_disp
 
 def computations(momenta, batch, arrays):
     print('----------------------- Computing HNL production --------------------')
-    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
+    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab = arrays
 
     print('     Invariant mass survival: ', np.mean(survival_invmass_displaced)) # Validated for trivial case
     print('     Pseudorapidity survival: ', np.mean(survival_rap_displaced)) # A bit high (because we use simple pseudorapidity)
@@ -101,15 +101,16 @@ def computations(momenta, batch, arrays):
     production_pT      = compute_production_efficiency(production_nocuts, [survival_pT_displaced])
     production_rap     = compute_production_efficiency(production_nocuts, [survival_rap_displaced])
     production_invmass = compute_production_efficiency(production_nocuts, [survival_invmass_displaced])
+    production_dv      = compute_production_efficiency(production_nocuts, [survival_dv_displaced])
 
-    survival_pT_rap = [survival_pT_displaced, survival_rap_displaced] 
+    survival_pT_rap    = [survival_pT_displaced, survival_rap_displaced] 
     production__pT_rap = compute_production_efficiency(production_nocuts, survival_pT_rap)
 
-    survival_pT_rap_invmass = [survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced] 
+    survival_pT_rap_invmass    = [survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced] 
     production__pT_rap_invmass = compute_production_efficiency(production_nocuts, survival_pT_rap_invmass)
 
-    survival_allcuts = [survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_dv_displaced, survival_deltaR_displaced] 
+    survival_allcuts   = [survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_dv_displaced, survival_deltaR_displaced] 
     production_allcuts = compute_production_efficiency(production_nocuts, survival_allcuts)
 
-    production_arrays = production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production__pT_rap, production__pT_rap_invmass
+    production_arrays = production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass
     return production_arrays

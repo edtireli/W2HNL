@@ -8,6 +8,24 @@ from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter
+from matplotlib.colors import LogNorm
+
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
+from ipywidgets import interact
+
+def enable_close_with_esc_key(fig):
+    """
+    Allows closing the figure window by pressing the Escape key.
+
+    :param fig: A matplotlib figure object to attach the close event.
+    """
+    def close_event(event):
+        if event.key == 'escape':
+            plt.close(fig)
+
+    fig.canvas.mpl_connect('key_press_event', close_event)
+
 
 def momentum_distribution(batch, batch_mass='1 GeV'):
     bin_number = 100
@@ -57,6 +75,7 @@ def plot_histograms(data_list, title, x_label, y_label, savename='', bin_number=
     plt.legend()
     if savename != '':
         save_plot(savename)
+
     plt.show()
 
 
@@ -216,11 +235,151 @@ def save_plot(name, dpi=200):
 
     plt.savefig(plot_path, dpi=dpi)
     print(f"Plot saved to {plot_path}")
-    
+
+
+
+def plot_decay_vertices_with_trajectories(r_labs, survival_bool, momenta, index_mass, index_mixing, title='Decay Vertices and Trajectories'):
+    """
+    Plot the decay vertices in 3D space with trajectories of daughter particles for given mass and mixing indices.
+
+    :param r_labs: An array of decay vertices with shape (masses, mixings, particles, 3).
+    :param survival_bool: A boolean array indicating survival, with shape (masses, mixings, particles).
+    :param momenta: The ParticleBatch object containing the momenta information.
+    :param index_mass: Index for the desired mass in the global mass_hnl array.
+    :param index_mixing: Index for the desired mixing in the global mixing array.
+    :param title: Title of the plot.
+    :param savename: If provided, the plot will be saved to this path.
+    """
+    vertices = r_labs[index_mass, index_mixing, :, :] * nat_to_m()
+    survived = survival_bool[index_mass, index_mixing, :]
+
+    survived_vertices = vertices[survived]
+    failed_vertices = vertices[~survived]
+
+    fig = make_subplots(rows=1, cols=1, specs=[[{'type': 'scatter3d'}]])
+
+    # Plot survived vertices, with legendgroup to group related elements in the legend
+    survived_scatter = go.Scatter3d(x=survived_vertices[:, 0], y=survived_vertices[:, 1], z=survived_vertices[:, 2], mode='markers', marker=dict(size=2, color='blue'), name='Survived', legendgroup='survived')
+    fig.add_trace(survived_scatter)
+
+    # Plot failed vertices, set to be hidden by default and grouped in legend
+    failed_scatter = go.Scatter3d(x=failed_vertices[:, 0], y=failed_vertices[:, 1], z=failed_vertices[:, 2], mode='markers', marker=dict(size=2, color='red'), name='Failed', visible='legendonly', legendgroup='failed')
+    fig.add_trace(failed_scatter)
+
+    trajectory_length = 0.5  # Adjust this value to control the length of the trajectories
+    for particle_type in ['displaced_minus', 'displaced_plus']:
+        momenta.mass(mass_hnl[index_mass]).particle(particle_type)
+        if survived.sum() > 0:  # Check if there are survived particles to plot
+            px = momenta.px()[survived]
+            py = momenta.py()[survived]
+            pz = momenta.pz()[survived]
+
+            norms = np.sqrt(px**2 + py**2 + pz**2)
+            unit_vectors = np.vstack([px/norms, py/norms, pz/norms]).T
+
+            end_points = survived_vertices + trajectory_length * unit_vectors
+
+            for start, end in zip(survived_vertices, end_points):
+                fig.add_trace(go.Scatter3d(
+                    x=[start[0], end[0]], y=[start[1], end[1]], z=[start[2], end[2]],
+                    mode='lines',
+                    line=dict(color='green' if particle_type == 'displaced_minus' else 'purple', width=3),
+                    legendgroup='survived',  # Group with survived
+                    showlegend=False  # Do not show these lines individually in the legend
+                ))
+
+    fig.update_layout(title=title,
+                  scene=dict(
+                      xaxis_title='X',
+                      yaxis_title='Y',
+                      zaxis_title='Z',
+                      camera=dict(
+                          up=dict(x=0, y=0, z=1),  # Ensures Z is up, but might need adjustments
+                          center=dict(x=0, y=0, z=0),  # Center of view
+                          eye=dict(x=2, y=2, z=0.1)  # Adjust for a more extreme perspective
+                      )
+                  ))
+    fig.show()
+
+
+def find_closest_indices(target_mass, target_mixing):
+    """
+    Finds the indices of the closest mass and mixing values to the target values.
+
+    :param target_mass: The target mass value.
+    :param target_mixing: The target mixing value.
+    :param mass_hnl: The array of HNL masses.
+    :param mixing: The array of mixing values.
+    :return: A tuple of indices (mass_index, mixing_index).
+    """
+
+    mass_hnl_array = np.array(mass_hnl)
+    mixing_array = np.array(mixing)
+
+    # Calculate the absolute difference between the target values and the available values
+    mass_diff = np.abs(mass_hnl_array - target_mass)
+    mixing_diff = np.abs(mixing_array - target_mixing)
+
+    # Find the indices of the minimum differences
+    mass_index = np.argmin(mass_diff)
+    mixing_index = np.argmin(mixing_diff)
+
+    return mass_index, mixing_index
+
+def find_best_survival_indices(survival_dv):
+    """
+    Find the indices of the mass and mixing scenario with the highest survival rate.
+
+    :param survival_dv: A boolean array with shape (masses, mixings, particles) indicating survival.
+    :return: A tuple containing the indices of the mass and mixing scenario with the highest survival rate.
+    """
+    # Calculate the survival rate for each mass and mixing combination
+    survival_rates = np.mean(survival_dv, axis=2)  # Average over the particle dimension
+
+    # Find the index of the highest survival rate
+    index_mass, index_mixing = np.unravel_index(np.argmax(survival_rates), survival_rates.shape)
+
+    return index_mass, index_mixing
+
+
+
+def plot_production_heatmap(production, title='Production Rates', savename=''):
+    """
+    Plot the production array as a heatmap.
+
+    :param production: A 2D array of production rates with shape (masses, mixings).
+    :param mass_hnl: Array of HNL masses.
+    :param mixing: Array of mixing values.
+    :param title: Title of the plot.
+    :param savename: Filename to save the plot. If empty, the plot will not be saved.
+    """
+    fig, ax = plt.subplots(figsize=(10, 8))
+    # The production array might need to be transposed depending on its layout
+    c = ax.imshow(production, aspect='auto', origin='lower', cmap='viridis', 
+                  extent=[min(mass_hnl), max(mass_hnl), np.log10(min(mixing)), np.log10(max(mixing))],
+                  norm=LogNorm(vmin=np.min(production[np.nonzero(production)]), vmax=np.max(production))) # Use log scale for mixing if needed
+
+    ax.set_xlabel('HNL Mass (GeV)')
+    ax.set_ylabel('Log10(Mixing)')
+    ax.set_title(title)
+
+    # Create colorbar
+    cbar = fig.colorbar(c, ax=ax)
+    cbar.set_label('Production Rate')
+
+    # Optionally, set mixing axis to log scale
+    # ax.set_yscale('log')
+
+    if savename:
+        plt.savefig(savename)
+
+    plt.show()
+
+
 def plotting(momenta, batch, production_arrays, arrays):
     print('------------------------------- Plotting ----------------------------')
-    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
-    production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production__pT_rap, production__pT_rap_invmass = production_arrays
+    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab = arrays
+    production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass = production_arrays
     
     dv_plot_data = [
         {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').pT()), 'label': '$\\mu^-$','linestyle': '-'},
@@ -265,13 +424,14 @@ def plotting(momenta, batch, production_arrays, arrays):
         savename='pseudorapidity_distribution_with_cut'
     )
 
-    
-    #plot_survival_3d(survival_dv_displaced, 'DV cut')
-    #plot_survival_2d([survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced], ['$p_T$ cut', '$\\eta$ cut', 'm_0 cut', '$\Delta_R$ cut'])
-
-
-    #plot_survival_3d(combined_survival, '(DV $\cdot$ $\\eta \cdot p_T \cdot \Delta_R \cdot m_0$) cut')
     plot_parameter_space_region(production_allcuts)
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 
 
+    index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
+    index_mass_best, index_mixing_best = find_best_survival_indices(survival_dv_displaced)
+    plot_decay_vertices_with_trajectories(r_lab, survival_dv_displaced,batch, index_mass_best,index_mixing_best, title=f'Surviving Decay Vertices in 3D Space for $M_N=${mass_hnl[index_mass_best]}, $\\Theta_\\tau^2 ≈$ {mixing[index_mixing_best]}')
+    
+    #plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')
+    #plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
+    #plot_production_heatmap(production_dv, title='Production Rates (DV cut)', savename='production_dvcut')
     return 0

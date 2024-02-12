@@ -204,7 +204,7 @@ class ParticleBatch:
         else:
             raise ValueError("Invalid cut type specified.")
 
-        return survival_mask
+        return survival_mask, rd_lab
 
     
     def cut_rap(self):
@@ -357,17 +357,20 @@ def survival_pT(particle_type, momentum):
 
 
 def survival_dv(momentum=1):
-    # Initialize an array to hold the survival status for each particle across all masses and mixings
+    # Initialize arrays to hold the survival status and decay vertices for each particle across all masses and mixings
     survival_bool = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
+    rd_labs = np.zeros((len(mass_hnl), len(mixing), batch_size, 3))  # rd_lab is a 3D vector
 
     for i, mass in enumerate(mass_hnl):
         for j, mix in enumerate(mixing):
             batch = ParticleBatch(momentum)
-            # Apply the DV cut for each mass and mixing scenario
-            survival_mask = batch.mass(mass).particle('hnl').cut_dv(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+            # Apply the DV cut for each mass and mixing scenario and get decay vertices
+            survival_mask, rd_lab = batch.mass(mass).particle('hnl').cut_dv(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
             survival_bool[i, j, :] = survival_mask
+            rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
 
-    return survival_bool
+    return survival_bool, rd_labs
+
 
 def survival_invmass_nontrivial(momentum=1):
     # Initialize an array to hold the survival status for each particle across all masses and mixings
@@ -454,10 +457,10 @@ def data_processing(momenta):
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
     
     print('Computing cut: Displaced vertex')
-    survival_dv_displaced = survival_dv(momentum=momenta)
+    survival_dv_displaced, r_lab = survival_dv(momentum=momenta)
     
     arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
               np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
-              np.array(survival_deltaR_displaced), 
+              np.array(survival_deltaR_displaced), np.array(r_lab)
      ) # defining a tuple for easier management of survival arrays on main
     return batch, arrays

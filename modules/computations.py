@@ -3,43 +3,39 @@ from modules.data_processing import *
 from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 
-def compute_production_efficiency(production_nocuts, survivals, survival_dv_displaced=None):
+import numpy as np
+
+def compute_production_efficiency(production_nocuts, survivals):
     """
-    Compute production rates adjusted by efficiencies derived from combinations of survival bools.
+    Compute production rates adjusted by efficiencies for both 2D and 3D survival arrays.
 
     :param production_nocuts: Array of initial production rates with shape (masses, mixings).
-    :param survivals: List of survival arrays. Each survival array should have shape (masses, particles)
-                      or (masses, mixings, particles) if including 'survival_dv_displaced'.
-    :param survival_dv_displaced: Optional, an array of survival bools including mixing dependence with shape (masses, mixings, particles).
+    :param survivals: List of survival arrays, each with shape (masses, particles) for 2D,
+                      or (masses, mixings, particles) for 3D.
     :return: Production rates adjusted by combined survival efficiencies, shape (masses, mixings).
     """
+    # Create a combined survival array initialized to ones
+    combined_survival = np.ones(production_nocuts.shape + (survivals[0].shape[-1],))
 
-    # Handle the special case where survival_dv_displaced is directly provided
-    if survival_dv_displaced is not None:
-        combined_survival = survival_dv_displaced
-    else:
-        # Assume all survivals initially affect all particles equally across all mixings
-        # This creates an array of shape (masses, mixings, particles) filled with ones
-        combined_survival = np.ones((production_nocuts.shape[0], production_nocuts.shape[1], survivals[0].shape[-1]))
-
-    # Adjust combined survival for each survival bool in survivals
+    # Adjust combined survival for each survival array in survivals
     for survival in survivals:
-        if len(survival.shape) == 3 and survival.shape[1] > 1:
-            # Survival array includes mixing dimension, shape (masses, mixings, particles)
-            combined_survival *= survival
-        else:
-            # Expand survival across the mixing dimension, shape becomes (masses, 1, particles)
+        if survival.ndim == 2:
+            # Expand survival across the mixing dimension
             survival_expanded = np.expand_dims(survival, axis=1)
-            # Broadcast to match combined_survival's mixing dimension
+            # Broadcast to match combined_survival's shape
             combined_survival *= survival_expanded
+        elif survival.ndim == 3:
+            # Directly multiply if survival includes the mixing dimension
+            combined_survival *= survival
 
     # Compute efficiency by averaging over the particle dimension
     efficiency = np.mean(combined_survival, axis=-1)  # Shape becomes (masses, mixings)
 
     # Scale initial production rates by efficiency
-    production_allcuts = production_nocuts * efficiency
+    production_adjusted = production_nocuts * efficiency
 
-    return production_allcuts
+    return production_adjusted
+
 
 
 def computations(momenta, batch, arrays):

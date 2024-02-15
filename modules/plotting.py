@@ -9,14 +9,50 @@ from parameters.experimental_parameters import *
 from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter
 from matplotlib.colors import LogNorm
-
+import glob
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from ipywidgets import interact
 
 
+#Plot triggers (enable/disable for extra plots):
+
+# Delete all stored images in Plots subfolder before saving new
+delete_png_before_use = True
+
+# Simple pT and rapidity plots
+preliminary_plots = False
+
 # Dynamic plot (Web hosted 3d lab frame decay vertex plot with daughters as arrows)
 dynamic_plot = False
+
+# Decay vertex statistics for specific mass/mix HNLs (configure below by plot)
+plots_decay_stats = False
+
+
+
+# Functions:
+
+def delete_png_files(folder_path):
+    """
+    Deletes all .png files in the specified folder.
+
+    Parameters:
+    - folder_path: A string representing the path to the folder from which .png files will be deleted.
+    """
+    # Create a pattern to match all .png files in the folder
+    pattern = os.path.join(folder_path, '*.png')
+
+    # Find all files in the folder that match the pattern
+    png_files = glob.glob(pattern)
+
+    # Iterate over the list of file paths and remove each file
+    for file_path in png_files:
+        try:
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+        except Exception as e:
+            print(f"Error deleting {file_path}: {e}")
 
 def enable_close_with_esc_key(fig):
     """
@@ -80,7 +116,6 @@ def plot_histograms(data_list, title, x_label, y_label, savename='', bin_number=
     plt.legend()
     if savename != '':
         save_plot(savename)
-
     plt.show()
 
 
@@ -346,130 +381,144 @@ def find_best_survival_indices(survival_dv):
 
     return index_mass, index_mixing
 
-
-
 def plot_production_heatmap(production, title='Production Rates', savename=''):
-    """
-    Plot the production array as a heatmap.
-
-    :param production: A 2D array of production rates with shape (masses, mixings).
-    :param mass_hnl: Array of HNL masses.
-    :param mixing: Array of mixing values.
-    :param title: Title of the plot.
-    :param savename: Filename to save the plot. If empty, the plot will not be saved.
-    """
-    fig, ax = plt.subplots(figsize=(10, 8))
-    # The production array might need to be transposed depending on its layout
-    c = ax.imshow(production, aspect='auto', origin='lower', cmap='viridis', 
-                  extent=[min(mass_hnl), max(mass_hnl), np.log10(min(mixing)), np.log10(max(mixing))],
-                  norm=LogNorm(vmin=np.min(production[np.nonzero(production)]), vmax=np.max(production))) # Use log scale for mixing if needed
-
-    ax.set_xlabel('HNL Mass (GeV)')
-    ax.set_ylabel('Log10(Mixing)')
-    ax.set_title(title)
-
-    # Create colorbar
-    cbar = fig.colorbar(c, ax=ax)
-    cbar.set_label('Production Rate')
-
-    # Optionally, set mixing axis to log scale
-    # ax.set_yscale('log')
-
+    # Create a meshgrid for interpolation
+    mass_grid, mixing_grid = np.meshgrid(np.linspace(min(mass_hnl), max(mass_hnl), 100),
+                                         np.logspace(np.log10(min(mixing)), np.log10(max(mixing)), 100))
+    
+    # Flatten the mass_hnl and mixing arrays for griddata input
+    points = np.array([np.repeat(mass_hnl, len(mixing)), np.tile(mixing, len(mass_hnl))]).T
+    values = production.flatten()
+    
+    # Interpolate the production values onto the meshgrid
+    production_grid = griddata(points, values, (mass_grid, mixing_grid), method='linear')
+    
+    plt.figure(figsize=(10, 6))
+    
+    # Define levels for contourf based on the range of production values
+    levels = np.linspace(values.min(), values.max(), 100)
+    
+    # Create a filled contour plot with interpolated production data
+    contour_filled = plt.contourf(mass_grid, mixing_grid, production_grid, levels=levels, cmap='viridis', extend='both')
+    plt.colorbar(contour_filled, label='Production Rate')
+    
+    plt.xscale('linear')
+    plt.yscale('log')
+    plt.xlabel('HNL Mass (GeV)')
+    plt.ylabel('Mixing')
+    plt.title(title)
+    plt.grid(alpha=0.25)
+    
+    # Highlight specific regions or levels if needed
+    # plt.contour(mass_grid, mixing_grid, production_grid, levels=[threshold], colors='red', linewidths=2)
+    
     if savename:
-        save_plot(savename)
-
+        save_plot(savename)  # Assuming save_plot is a custom function for saving the plot
+    
     plt.show()
+
+
 
 
 def plotting(momenta, batch, production_arrays, arrays):
     print('------------------------------- Plotting ----------------------------')
+    # Loading of arrays supplied from main:
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
     production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass = production_arrays
     
-    dv_plot_data = [
-        {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').pT()), 'label': '$\\mu^-$','linestyle': '-'},
-        {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('boson').pT()), 'label': '$W^\\pm$', 'linestyle': '--'},
-        {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('hnl').pT()), 'label': '$N$','linestyle': '-'},
-        {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('prompt').pT()), 'label': '$\\tau$','linestyle': '--'},
-    ]
-    plot_histograms(
-        data_list=dv_plot_data,
-        title='Transverse momentum distribution from 7 GeV HNLs',
-        x_label='$p_T$ (GeV)',
-        y_label='Frequency',
-        savename='pT_distribution'
-    )
+    current_directory = os.getcwd()
+    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    plot_path         = os.path.join(data_path, 'Plots')
+
+    if delete_png_before_use:
+        delete_png_files(plot_path)
+
+    # Plots:
+    if preliminary_plots:
+        dv_plot_data = [
+            {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').pT()), 'label': '$\\mu^-$','linestyle': '-'},
+            {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('boson').pT()), 'label': '$W^\\pm$', 'linestyle': '--'},
+            {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('hnl').pT()), 'label': '$N$','linestyle': '-'},
+            {'data': abs(ParticleBatch(momenta).mass('7 GeV').particle('prompt').pT()), 'label': '$\\tau$','linestyle': '--'},
+        ]
+        plot_histograms(
+            data_list=dv_plot_data,
+            title='Transverse momentum distribution from 7 GeV HNLs',
+            x_label='$p_T$ (GeV)',
+            y_label='Frequency',
+            savename='pT_distribution'
+        )
 
 
 
-    eta_plot_data = [
-        {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').eta(), 'label': '$\\mu^-$','linestyle': '-'},
-        {'data': ParticleBatch(momenta).mass('7 GeV').particle('boson').eta(), 'label': '$W^\\pm$', 'linestyle': '--'},
-        {'data': ParticleBatch(momenta).mass('7 GeV').particle('hnl').eta(), 'label': '$N$','linestyle': '-'},
-        {'data': ParticleBatch(momenta).mass('7 GeV').particle('prompt').eta(), 'label': '$\\tau$','linestyle': '--'},
-    ]
-    plot_histograms(
-        data_list=eta_plot_data,
-        title='Pseudorapidity distribution from 7 GeV HNLs',
-        x_label='$\\eta$',
-        y_label='Frequency',
-        savename='pseudorapidity_distribution'
-    )
+        eta_plot_data = [
+            {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').eta(), 'label': '$\\mu^-$','linestyle': '-'},
+            {'data': ParticleBatch(momenta).mass('7 GeV').particle('boson').eta(), 'label': '$W^\\pm$', 'linestyle': '--'},
+            {'data': ParticleBatch(momenta).mass('7 GeV').particle('hnl').eta(), 'label': '$N$','linestyle': '-'},
+            {'data': ParticleBatch(momenta).mass('7 GeV').particle('prompt').eta(), 'label': '$\\tau$','linestyle': '--'},
+        ]
+        plot_histograms(
+            data_list=eta_plot_data,
+            title='Pseudorapidity distribution from 7 GeV HNLs',
+            x_label='$\\eta$',
+            y_label='Frequency',
+            savename='pseudorapidity_distribution'
+        )
 
-    rapidity_mask = ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').cut_rap()
-    eta_plot_data = [
-        {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').eta(), 'label': '$\\mu^-$','linestyle': '-'},
-        {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').apply_mask(rapidity_mask).eta(), 'label': '$\\mu^-$ ($\\eta$-cut)','linestyle': '--'},
-    ]
-    plot_histograms(
-        data_list=eta_plot_data,
-        title='Pseudorapidity distribution from 7 GeV HNLs',
-        x_label='$\\eta$',
-        y_label='Frequency',
-        savename='pseudorapidity_distribution_with_cut'
-    )
+        rapidity_mask = ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').cut_rap()
+        eta_plot_data = [
+            {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').eta(), 'label': '$\\mu^-$','linestyle': '-'},
+            {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').apply_mask(rapidity_mask).eta(), 'label': '$\\mu^-$ ($\\eta$-cut)','linestyle': '--'},
+        ]
+        plot_histograms(
+            data_list=eta_plot_data,
+            title='Pseudorapidity distribution from 7 GeV HNLs',
+            x_label='$\\eta$',
+            y_label='Frequency',
+            savename='pseudorapidity_distribution_with_cut'
+        )
 
+    # Decay vertex plots (enable/disable):
+    if plots_decay_stats:
+        index_mass, index_mixing = find_closest_indices(target_mass=3, target_mixing=1e-6)
+        lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing], 'label': '$\\tau_N$','linestyle': '-'}]
+        plot_histograms(
+            data_list=lifetime_data, 
+            title=f'Distribution of HNL lifetimes in rest frame for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
+            x_label='1/GeV',
+            y_label='Frequency',
+            savename='HNL_proper_time'
+        )
 
-    index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
-    lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing], 'label': '$\\tau_N$','linestyle': '-'}]
-    print(np.mean(lifetimes_rest[index_mass,index_mixing]))
-    plot_histograms(
-        data_list=lifetime_data, 
-        title=f'Distribution of HNL lifetimes in rest frame for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
-        x_label='1/GeV',
-        y_label='Frequency',
-        savename='HNL_proper_time'
-    )
+        lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing]*lorentz_factors[index_mass,index_mixing]*nat_to_m(), 'label': '$\\tau_N$','linestyle': '-'}]
+        plot_histograms(
+            data_list=lifetime_data, 
+            title=f'Distribution of HNL lab decay distances for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
+            x_label='m',
+            y_label='Frequency',
+            savename='HNL_decay_distance_lab'
+        )
 
-    lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing]*lorentz_factors[index_mass,index_mixing]*nat_to_m(), 'label': '$\\tau_N$','linestyle': '-'}]
-    plot_histograms(
-        data_list=lifetime_data, 
-        title=f'Distribution of HNL lab decay distances for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
-        x_label='m',
-        y_label='Frequency',
-        savename='HNL_decay_distance_lab'
-    )
-
-    lorentz_factor_data =[{'data': lorentz_factors[index_mass,index_mixing], 'label': '$\\gamma_N$','linestyle': '-'}]
-    plot_histograms(
-        data_list=lorentz_factor_data,
-        title=f'Distribution of HNL Lorentz factors in rest frame for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
-        x_label='$\gamma$',
-        y_label='Frequency',
-        savename='Lorentz_factor'
-    )
-
-    plot_parameter_space_region(production_allcuts)
-    plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 
+        lorentz_factor_data =[{'data': lorentz_factors[index_mass,index_mixing], 'label': '$\\gamma_N$','linestyle': '-'}]
+        plot_histograms(
+            data_list=lorentz_factor_data,
+            title=f'Distribution of HNL Lorentz factors in rest frame for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
+            x_label='$\gamma$',
+            y_label='Frequency',
+            savename='Lorentz_factor'
+        )
 
     index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
     index_mass_best, index_mixing_best = find_best_survival_indices(survival_dv_displaced)
     if dynamic_plot:
         plot_decay_vertices_with_trajectories(r_lab, survival_dv_displaced,batch, index_mass_best,index_mixing_best, title=f'Surviving Decay Vertices in 3D Space for $M_N=${mass_hnl[index_mass_best]}, $\\Theta_\\tau^2 ≈$ {mixing[index_mixing_best]}')
     
-    #plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')
-    #plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
-    #plot_production_heatmap(production_dv, title='Production Rates (DV cut)', savename='production_dvcut')
-    return 0
+    # Parameter space and production plots:
+    plot_parameter_space_region(production_allcuts)
+    plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 
 
-    #print(HNL(10,[0,0,1],True).NDecayWidth())
+    plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')
+    plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
+    plot_production_heatmap(production_dv, title='Production Rates (DV cut)', savename='production_dvcut')
+    plot_production_heatmap(production_invmass, title='Production Rates (Invariant mass cut)', savename='production_invmass')
+    return 0

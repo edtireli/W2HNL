@@ -82,7 +82,7 @@ def computations(momenta, batch, arrays):
     # Calculate initial production rates before any cuts
     theoretical_sigma = 2.05e7  # fb corresponding to 20.5nb from https://arxiv.org/pdf/1603.09222.pdf
     cross_sections = theoretical_sigma * np.array([HNL(m, [0,0,1], False).findBranchingRatio('N -> mu- mu+ nu_tau') for m in mass_hnl])
-    production_nocuts = luminosity * cross_sections[:, np.newaxis] * np.array(mixing)[np.newaxis, :]  # Shape now (19, 100)
+    production_nocuts = luminosity * cross_sections[:, np.newaxis] * np.array(mixing)[np.newaxis, :]  # Shape now (mass, mixing)
 
     # Apply efficiency to scale production rates
     production_allcuts = production_nocuts * efficiency 

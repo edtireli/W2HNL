@@ -29,7 +29,8 @@ dynamic_plot = False
 # Decay vertex statistics for specific mass/mix HNLs (configure below by plot)
 plots_decay_stats = False
 
-
+# Heat maps of production after various cuts
+plot_heatmaps = False 
 
 # Functions:
 
@@ -174,6 +175,17 @@ def plot_survival_2d(survival_array, label_array):
     plt.legend()
     plt.show()
 
+def save_contour_data(contour_data, name):
+    current_directory = os.getcwd()
+    data_path = os.path.join(current_directory, 'data', data_folder)
+    contour_data_path = os.path.join(data_path, 'Plots', 'Plot data', f'{name}.pkl')
+    os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)  # Ensure the directory exists
+
+    # Save the contour data using pickle
+    with open(contour_data_path, 'wb') as file:
+        pickle.dump(contour_data, file)
+    print(f"Contour data saved to {contour_data_path}")
+
 def plot_parameter_space_region(production_allcuts):
     # Ensure production_minimum is set to a meaningful threshold based on your context
     mass_grid, mixing_grid = np.meshgrid(np.linspace(min(mass_hnl), max(mass_hnl), 100),
@@ -192,11 +204,12 @@ def plot_parameter_space_region(production_allcuts):
     plt.colorbar(contour_filled, label='Production')
 
     # Highlight the region where production meets or exceeds the minimum threshold
-    # Assuming production_minimum is the value above which the region is highlighted
-    contour = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum], colors='red', linewidths=2, linestyles='-')
+    contour = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum], colors='red', linewidths=1, linestyles='-')
+    plt.clabel(contour, inline=True, fontsize=6, fmt='{:.0f}'.format(production_minimum))
 
-    plt.text(mass_grid.max()-5, mixing_grid.max()-5, f'Production > {production_minimum}', color='red', fontsize=10, backgroundcolor='white')
-    plt.clabel(contour, inline=True, fontsize=8)
+    # Add a new contour line for production_minimum_2 in blue
+    contour2 = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum_secondary], colors='blue', linewidths=1, linestyles='-')
+    plt.clabel(contour2, inline=True, fontsize=6, fmt='{:.0f}'.format(production_minimum_secondary))
 
     plt.xscale('linear')
     plt.yscale('log')
@@ -206,6 +219,9 @@ def plot_parameter_space_region(production_allcuts):
     plt.title(f'HNL production parameter space')
     save_plot('hnl_production_parameter_space_contour')
     plt.show()
+
+    save_contour_data(contour, f'contour_production_minimum__{luminosity}_{invmass_cut_type}')
+    save_contour_data(contour2, f'contour_production_minimum_secondary_{luminosity}_{invmass_cut_type}')
 
 def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, smooth=False, sigma=1):
     """
@@ -517,8 +533,9 @@ def plotting(momenta, batch, production_arrays, arrays):
     plot_parameter_space_region(production_allcuts)
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 
 
-    plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')
-    plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
-    plot_production_heatmap(production_dv, title='Production Rates (DV cut)', savename='production_dvcut')
-    plot_production_heatmap(production_invmass, title='Production Rates (Invariant mass cut)', savename='production_invmass')
+    if plot_heatmaps:
+        plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')
+        plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
+        plot_production_heatmap(production_dv, title='Production Rates (DV cut)', savename='production_dvcut')
+        plot_production_heatmap(production_invmass, title='Production Rates (Invariant mass cut)', savename='production_invmass')
     return 0

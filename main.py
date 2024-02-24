@@ -16,5 +16,5 @@ def main():
     # Plots
     plotting(momenta, batch, production_arrays, arrays)
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
     main()

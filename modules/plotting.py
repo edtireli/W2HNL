@@ -27,7 +27,7 @@ preliminary_plots = False
 dynamic_plot = False
 
 # Decay vertex statistics for specific mass/mix HNLs (configure below by plot)
-plots_decay_stats = False
+plots_decay_stats = True
 
 # Heat maps of production after various cuts
 plot_heatmaps = False 
@@ -515,14 +515,14 @@ def plotting(momenta, batch, production_arrays, arrays):
             savename='HNL_decay_distance_lab'
         )
 
-        lorentz_factor_data =[{'data': lorentz_factors[index_mass,index_mixing], 'label': '$\\gamma_N$','linestyle': '-'}]
-        plot_histograms(
-            data_list=lorentz_factor_data,
-            title=f'Distribution of HNL Lorentz factors in rest frame for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
-            x_label='$\gamma$',
-            y_label='Frequency',
-            savename='Lorentz_factor'
-        )
+        average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
+        plt.figure(figsize=(10, 6))
+        plt.scatter(mass_hnl, average_lorentz_factors, linestyle='-', color='k', alpha=0.75, s=4)
+        plt.xlabel('HNL mass $M_N$ (GeV)')
+        plt.ylabel('Average Lorentz factor $\gamma_N$')
+        plt.title('Average Lorentz factors as a function of HNL mass')
+        plt.grid(True)
+        plt.show()
 
     index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
     index_mass_best, index_mixing_best = find_best_survival_indices(survival_dv_displaced)

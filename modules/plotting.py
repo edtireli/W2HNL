@@ -496,7 +496,7 @@ def plotting(momenta, batch, production_arrays, arrays):
 
     # Decay vertex plots (enable/disable):
     if plots_decay_stats:
-        index_mass, index_mixing = find_closest_indices(target_mass=3, target_mixing=1e-6)
+        index_mass, index_mixing = find_closest_indices(target_mass=6, target_mixing=1e-6)
         lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing], 'label': '$\\tau_N$','linestyle': '-'}]
         plot_histograms(
             data_list=lifetime_data, 
@@ -515,6 +515,24 @@ def plotting(momenta, batch, production_arrays, arrays):
             savename='HNL_decay_distance_lab'
         )
 
+        _, index_mixing = find_closest_indices(target_mass=6, target_mixing=1)
+        rd_lab_norm = np.linalg.norm(r_lab, axis=-1)
+        rd_lab_norm_selected = rd_lab_norm[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
+        lifetimes_rest_selected = lifetimes_rest[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
+        lorentz_factors_selected = lorentz_factors[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
+
+        normalized_decay_distances = rd_lab_norm_selected / (lifetimes_rest_selected * nat_to_m() * lorentz_factors_selected)
+        average_normalized_decay_distance = np.mean(normalized_decay_distances, axis=1)
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(mass_hnl, average_normalized_decay_distance, marker='o', linestyle='-', color='blue')
+        plt.xlabel('HNL Mass (GeV)')
+        plt.ylabel('Average Normalized Decay Distance $\\frac{L}{c\\tau\\gamma}$')
+        plt.title('Average Normalized Decay Distance vs. HNL Mass')
+        plt.grid(True)
+        save_plot('Lctg')
+        plt.show()
+        
         average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
         plt.figure(figsize=(10, 6))
         plt.scatter(mass_hnl, average_lorentz_factors, linestyle='-', color='k', alpha=0.75, s=4)
@@ -522,6 +540,28 @@ def plotting(momenta, batch, production_arrays, arrays):
         plt.ylabel('Average Lorentz factor $\gamma_N$')
         plt.title('Average Lorentz factors as a function of HNL mass')
         plt.grid(True)
+        save_plot('lorentz_factors')
+        plt.show()
+
+        index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=5.4e-6)
+        average_survival_rate = np.mean(survival_dv_displaced, axis=2)
+        print(average_survival_rate[index_mass, index_mixing])
+        for index_mass in range(len(mass_hnl)):
+            average_lorentz_factor = np.mean(lorentz_factors[index_mass, index_mixing])
+            average_lifetime_rest = np.mean(lifetimes_rest[index_mass, index_mixing])
+
+            denominator = (average_lifetime_rest * average_lorentz_factor * nat_to_m())
+            exp_arg_max = -unit_converter(r_max_l) / denominator
+            exp_arg_min = -unit_converter(r_min) / denominator
+            analytic_survival_probability = np.exp(np.minimum(exp_arg_min, 700)) - np.exp(np.minimum(exp_arg_max, 700))
+            # Plotting
+            plt.plot(mass_hnl[index_mass], average_survival_rate[index_mass, index_mixing], 'bo', label='Simulated Survival Rate' if index_mass == 0 else "")
+            plt.plot(mass_hnl[index_mass], analytic_survival_probability, 'rx', label='Analytic Survival Probability' if index_mass == 0 else "")
+
+        plt.xlabel('HNL mass (GeV)')
+        plt.ylabel('Survival Rate')
+        plt.title(f'Survival Rate Comparison for Mixing $\\Theta_\\tau^2$ = {mixing[index_mixing]}')
+        plt.legend()
         plt.show()
 
     index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)

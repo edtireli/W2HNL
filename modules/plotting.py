@@ -562,6 +562,7 @@ def plotting(momenta, batch, production_arrays, arrays):
         plt.ylabel('Survival Rate')
         plt.title(f'Survival Rate Comparison for Mixing $\\Theta_\\tau^2$ = {mixing[index_mixing]}')
         plt.legend()
+        save_plot('DV_cut_validation')
         plt.show()
 
     index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)

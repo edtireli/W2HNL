@@ -41,6 +41,11 @@ production_plots = False
 
 # Functions:
 
+def on_key_press(event):
+    """Close the plot when the ESC key is pressed."""
+    if event.key == 'escape':
+        plt.close(event.canvas.figure)
+
 def delete_png_files(folder_path):
     """
     Deletes all .png files in the specified folder.
@@ -120,6 +125,9 @@ def plot_histograms(data_list, title, x_label, y_label, savename='', bin_number=
 
     for entry in data_list:
         plt.hist(entry['data'], bins=bins, histtype='step', label=entry['label'], linestyle=entry.get('linestyle', '-'))
+
+    # Connect the key press event to the handler
+    plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
 
     plt.legend()
     if savename != '':
@@ -226,6 +234,10 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
     plt.grid(alpha=0.25)
     plt.title(title)
+
+    # Connect the key press event to the handler
+    plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
+
     save_plot(savename)
     plt.show()
 
@@ -285,6 +297,10 @@ def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, s
     plt.xlabel('HNL Mass, $M_N$ (GeV)', size = 12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size = 12)
     plt.title('HNL Production Parameter Space')
+    
+    # Connect the key press event to the handler
+    plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
+
     plt.grid(alpha=0.25)
     save_plot('hnl_production_parameter_space_multi')
     plt.show()
@@ -355,6 +371,10 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
     plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
     plt.title(title)
+    
+    # Connect the key press event to the handler
+    plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
+
     plt.grid(alpha=0.25)
     save_plot(savename)
     plt.show()
@@ -534,6 +554,10 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
     plt.xlabel('HNL Mass (GeV)')
     plt.ylabel('Mixing')
     plt.title(title)
+    
+    # Connect the key press event to the handler
+    plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
+
     plt.grid(alpha=0.25)
     
     # Highlight specific regions or levels if needed

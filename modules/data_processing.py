@@ -123,7 +123,6 @@ class ParticleBatch:
             raise ValueError("Particle type and mass must be selected before computing pseudorapidity.")
         pz = self.pz()  # Assuming self.pz() returns the z-component of momentum
         pt = self.pT()  # Assuming self.pT() returns the transverse momentum
-        p = np.sqrt(pt**2 + pz**2)  # Magnitude of the momentum vector
         # Avoid division by zero or log of zero by adding a small number epsilon
         epsilon = 1e-9
         eta = -np.log(np.tan(np.arctan2(pt, pz) / 2) + epsilon)
@@ -367,7 +366,7 @@ def survival_dv(momentum=1):
             # Make a deep copy of the batch for this particular cut application
             batch_dv = copy.deepcopy(original_batch)
             # Apply the DV cut for each mass and mixing scenario and get decay vertices
-            survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv(mix, 'cylinder', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+            survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv(mix, cut_type_dv, unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
             survival_bool_dv[i, j, :] = survival_mask_dv
             rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
             lifetimes_rest[i, j, :] = td

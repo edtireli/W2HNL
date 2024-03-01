@@ -34,6 +34,7 @@ plot_heatmaps = True
 
 # Plot survival heatmaps
 survival_plots = True
+levels_heatmap = 10
 
 # Plot production heatmaps
 production_plots = False
@@ -321,7 +322,7 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
 
     plt.contourf(
         mass_grid, mixing_grid, survival_grid,
-        levels=np.linspace(survival_fraction.min(), survival_fraction.max(), 50),
+        levels=np.linspace(survival_fraction.min(), survival_fraction.max(), levels_heatmap),
         cmap=plt.cm.viridis
     )
     plt.colorbar(label='Survival Fraction')

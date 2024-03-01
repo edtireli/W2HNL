@@ -211,12 +211,14 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
     plt.colorbar(contour_filled, label='Production')
 
     # Highlight the region where production meets or exceeds the minimum threshold
-    contour = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum], colors='red', linewidths=1, linestyles='-')
-    plt.clabel(contour, inline=True, fontsize=6, fmt='{:.0f}'.format(production_minimum))
+    if np.any(production_grid >= production_minimum):
+        contour = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum], colors='red', linewidths=1, linestyles='-')
+        plt.clabel(contour, inline=True, fontsize=6, fmt='{:.0f}'.format(production_minimum))
 
-    # Add a new contour line for production_minimum_2 in blue
-    contour2 = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum_secondary], colors='blue', linewidths=1, linestyles='-')
-    plt.clabel(contour2, inline=True, fontsize=6, fmt='{:.0f}'.format(production_minimum_secondary))
+    # Add a new contour line for production_minimum_2 in blue, only if within range
+    if np.min(production_grid) <= production_minimum_secondary <= np.max(production_grid):
+        contour2 = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum_secondary], colors='blue', linewidths=1, linestyles='-')
+        plt.clabel(contour2, inline=True, fontsize=6, fmt='{:.0f}'.format(production_minimum_secondary))
 
     plt.xscale('linear')
     plt.yscale('log')
@@ -332,16 +334,17 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
 
     if plot_mass_mixing_lines:
         for C in constants:
-            mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
-            mixing_for_constant = (C / mass_range**6)
-            plt.plot(mass_range, mixing_for_constant, '--', color='red', label=f'C={C:.1e}', alpha=0.4)
+            if C >= 1e-4:
+                mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
+                mixing_for_constant = (C / mass_range**6)
+                plt.plot(mass_range, mixing_for_constant, '--', color='red', label=f'C={C:.1e}', alpha=0.4)
 
-            label_index = len(mass_range) // 2  # Midpoint
-            label_y_position = mixing_for_constant[label_index] * 0.5
+                label_index = len(mass_range) // 2  # Midpoint
+                label_y_position = mixing_for_constant[label_index] * 0.5
 
-            plt.text(mass_range[label_index], label_y_position, 
-                        f'$c\\tau\\gamma = {C:.1e}$', color='red', fontsize=9,
-                        ha='center', va='bottom', rotation=-22, alpha=0.4)
+                plt.text(mass_range[label_index], label_y_position, 
+                            f'$c\\tau\\gamma = {C:.1e}$', color='red', fontsize=9,
+                            ha='center', va='bottom', rotation=-22, alpha=0.4)
 
     plt.plot([], [], color=colors, linewidth=2, linestyle='-', label=labels)
 

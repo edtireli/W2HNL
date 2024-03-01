@@ -286,7 +286,7 @@ def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, s
     save_plot('hnl_production_parameter_space_multi')
     plt.show()
 
-def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors=None, smooth=False, sigma=1, title='', savename=''):
+def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors=None, smooth=False, sigma=1, title='', savename='', plot_mass_mixing_lines=False):
     """
     Plot survival fraction on the parameter space with contours.
 
@@ -327,10 +327,24 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
     )
     plt.colorbar(label='Survival Fraction')
     
+    constants=[1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3]
+
+    if plot_mass_mixing_lines:
+        for C in constants:
+            mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
+            mixing_for_constant = (C / mass_range**6)
+            plt.plot(mass_range, mixing_for_constant, '--', color='red', label=f'C={C:.1e}', alpha=0.33)
+
+            label_index = len(mass_range) // 2  # Midpoint for simplicity
+            plt.text(mass_range[label_index], mixing_for_constant[label_index], 
+                        f'$c\\tau\\gamma = {C:.1e}$', color='red', fontsize=9,
+                        ha='center', va='bottom', rotation=-19, alpha=0.33)
+
     plt.plot([], [], color=colors, linewidth=2, linestyle='-', label=labels)
 
     plt.xscale('linear')
     plt.yscale('log')
+    plt.ylim(1e-8, 1e0)
     plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
     plt.title(title)
@@ -686,7 +700,7 @@ def plotting(momenta, batch, production_arrays, arrays):
         else:
             plot_survival_parameter_space_regions(calculate_survival_fraction(survival_deltaR_displaced), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
         
-        plot_survival_parameter_space_regions(calculate_survival_fraction((survival_dv_displaced)), smooth=False, sigma=1, title='HNL survival (DV cut)', savename='survival_dv')
+        plot_survival_parameter_space_regions(calculate_survival_fraction((survival_dv_displaced)), smooth=False, sigma=1, title='HNL survival (DV cut)', savename='survival_dv', plot_mass_mixing_lines = True)
 
     # Parameter space and production plots:
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')    

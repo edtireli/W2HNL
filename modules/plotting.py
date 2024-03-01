@@ -336,8 +336,8 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
             mixing_for_constant = (C / mass_range**6)
             plt.plot(mass_range, mixing_for_constant, '--', color='red', label=f'C={C:.1e}', alpha=0.4)
 
-            label_index = len(mass_range) // 2  # Midpoint for simplicity
-            label_y_position = mixing_for_constant[label_index] * 0.8
+            label_index = len(mass_range) // 2  # Midpoint
+            label_y_position = mixing_for_constant[label_index] * 0.5
 
             plt.text(mass_range[label_index], label_y_position, 
                         f'$c\\tau\\gamma = {C:.1e}$', color='red', fontsize=9,

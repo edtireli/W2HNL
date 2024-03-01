@@ -367,7 +367,7 @@ def survival_dv(momentum=1):
             # Make a deep copy of the batch for this particular cut application
             batch_dv = copy.deepcopy(original_batch)
             # Apply the DV cut for each mass and mixing scenario and get decay vertices
-            survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+            survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv(mix, 'cylinder', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
             survival_bool_dv[i, j, :] = survival_mask_dv
             rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
             lifetimes_rest[i, j, :] = td

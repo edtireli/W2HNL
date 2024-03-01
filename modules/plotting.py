@@ -677,8 +677,6 @@ def plotting(momenta, batch, production_arrays, arrays):
     
     # Survival plots: 
     if survival_plots:
-        print(np.shape(survival_pT_displaced))
-        print(np.shape(survival_dv_displaced))
         plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced)), smooth=False, sigma=1, title='HNL survival (pT cut)', savename='survival_pT')
         plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced)), smooth=False, sigma=1, title='HNL survival (invariant mass cut)', savename='survival_invmass')
         plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced)), smooth=False, sigma=1, title='HNL survival (rapidity cut)', savename='survival_rap')
@@ -690,8 +688,8 @@ def plotting(momenta, batch, production_arrays, arrays):
         plot_survival_parameter_space_regions(calculate_survival_fraction((survival_dv_displaced)), smooth=False, sigma=1, title='HNL survival (DV cut)', savename='survival_dv')
 
     # Parameter space and production plots:
+    plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')    
     if production_plots:
-        plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')
         plot_parameter_space_region(production_invmass, title='HNL Production (invariant mass cut)', savename = 'hnl_production_invmass')
         plot_parameter_space_regions(production_nocuts, production_dv, labels=['no cuts', 'DV'], colors=['red', 'black'], smooth=False, sigma=1) 
         plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 

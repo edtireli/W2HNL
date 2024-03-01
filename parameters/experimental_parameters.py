@@ -9,6 +9,7 @@ deltaR_minimum = 0.05 # Minimum angular seperation
 pseudorapidity_minimum = 0   # Minimum pseudorapidity criteria for HNL decay 
 pseudorapidity_maximum = 2.4 # Maximum pseudorapidity criteria for HNL decay
 
+cut_type_dv = 'sphere' # Either cylinder or sphere
 r_min = '17 m' # Minimum distance from interaction point (IP) to consider HNL decays/decay volume
 r_max_t = '25 m' # Maximum distance from interaction point (IP) to consider HNL decays/decay volume in the transverse direction
 r_max_l = '25 m' # Maximum distance from interaction point (IP) to consider HNL decays/decay volume in the longitudinal (z) direction along beamline

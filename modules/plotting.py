@@ -230,7 +230,8 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
     plt.show()
 
     save_contour_data(contour, f'contour_production_minimum__{luminosity}_{invmass_cut_type}')
-    save_contour_data(contour2, f'contour_production_minimum_secondary_{luminosity}_{invmass_cut_type}')
+    if np.min(production_grid) <= production_minimum_secondary <= np.max(production_grid):
+        save_contour_data(contour2, f'contour_production_minimum_secondary_{luminosity}_{invmass_cut_type}')
 
 def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, smooth=False, sigma=1):
     """

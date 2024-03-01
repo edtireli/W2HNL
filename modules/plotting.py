@@ -201,6 +201,17 @@ def save_contour_data(contour_data, name):
         pickle.dump(contour_data, file)
     print(f"Contour data saved to {contour_data_path}")
 
+def save_survival_data(survival_data, name):
+    current_directory = os.getcwd()
+    data_path = os.path.join(current_directory, 'data', data_folder)
+    survival_data_path = os.path.join(data_path, 'Plots', 'Plot data', f'{name}.pkl')
+    os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)  # Ensure the directory exists
+
+    # Save the contour data using pickle
+    with open(survival_data_path, 'wb') as file:
+        pickle.dump(survival_data, file)
+    print(f"Survival data saved to {survival_data_path}")    
+
 def plot_parameter_space_region(production_allcuts, title='', savename=''):
     # Ensure production_minimum is set to a meaningful threshold based on your context
     mass_grid, mixing_grid = np.meshgrid(np.linspace(min(mass_hnl), max(mass_hnl), 100),
@@ -377,6 +388,7 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
 
     plt.grid(alpha=0.25)
     save_plot(savename)
+    save_survival_data(survival_fraction, savename)
     plt.show()
 
 def mean_from_2d_survival(arr):

@@ -17,16 +17,15 @@ def compute_production_efficiency(production_nocuts, survivals):
     # Create a combined survival array initialized to ones
     combined_survival = np.ones(production_nocuts.shape + (survivals[0].shape[-1],))
 
-    # Adjust combined survival for each survival array in survivals
     for survival in survivals:
-        if survival.ndim == 2:
-            # Expand survival across the mixing dimension
-            survival_expanded = np.expand_dims(survival, axis=1)
-            # Broadcast to match combined_survival's shape
+        survival_copy = np.copy(survival)  # Explicit copy to ensure original is not modified
+        if survival_copy.ndim == 2:
+            # Expand survival across the mixing dimension and use copy for operation
+            survival_expanded = np.expand_dims(survival_copy, axis=1)
             combined_survival *= survival_expanded
-        elif survival.ndim == 3:
-            # Directly multiply if survival includes the mixing dimension
-            combined_survival *= survival
+        elif survival_copy.ndim == 3:
+            # Use copy directly if survival includes the mixing dimension
+            combined_survival *= survival_copy
 
     # Compute efficiency by averaging over the particle dimension
     efficiency = np.mean(combined_survival, axis=-1)  # Shape becomes (masses, mixings)
@@ -38,7 +37,7 @@ def compute_production_efficiency(production_nocuts, survivals):
 
 
 
-def computations(momenta, batch, arrays):
+def computations(momenta, arrays):
     print('----------------------- Computing HNL production --------------------')
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
 
@@ -69,13 +68,13 @@ def computations(momenta, batch, arrays):
 
     # Combine survivals with proper broadcasting
     if invmass_cut_type == 'nontrivial':
-        combined_survival = survival_dv_displaced * survival_invmass_displaced
+        combined_survival = combined_survival = survival_dv_displaced * np.copy(survival_invmass_displaced)
     else:
         combined_survival = survival_dv_displaced
 
     for survival in expanded_survivals:
-        combined_survival *= survival
-
+        combined_survival = np.copy(survival_dv_displaced)
+    
     # Calculate efficiency by averaging over the particles dimension
     efficiency = np.mean(combined_survival, axis=-1)  # Averaging over the third dimension (particles)
 
@@ -88,9 +87,6 @@ def computations(momenta, batch, arrays):
     production_allcuts = production_nocuts * efficiency 
     print('  ...................................................')
     print('    Total mean survival rate: ', np.mean(efficiency))
-
-
-
 
 
     # Compute production rates adjusted for different cuts

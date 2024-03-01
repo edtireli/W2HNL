@@ -27,10 +27,16 @@ preliminary_plots = False
 dynamic_plot = False
 
 # Decay vertex statistics for specific mass/mix HNLs (configure below by plot)
-plots_decay_stats = True
+plots_decay_stats = False
 
 # Heat maps of production after various cuts
-plot_heatmaps = False 
+plot_heatmaps = True 
+
+# Plot survival heatmaps
+survival_plots = True
+
+# Plot production heatmaps
+production_plots = False
 
 # Functions:
 
@@ -186,7 +192,7 @@ def save_contour_data(contour_data, name):
         pickle.dump(contour_data, file)
     print(f"Contour data saved to {contour_data_path}")
 
-def plot_parameter_space_region(production_allcuts):
+def plot_parameter_space_region(production_allcuts, title='', savename=''):
     # Ensure production_minimum is set to a meaningful threshold based on your context
     mass_grid, mixing_grid = np.meshgrid(np.linspace(min(mass_hnl), max(mass_hnl), 100),
                                          np.logspace(np.log10(min(mixing)), np.log10(max(mixing)), 100))
@@ -216,8 +222,8 @@ def plot_parameter_space_region(production_allcuts):
     plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
     plt.grid(alpha=0.25)
-    plt.title(f'HNL production parameter space')
-    save_plot('hnl_production_parameter_space_contour')
+    plt.title(title)
+    save_plot(savename)
     plt.show()
 
     save_contour_data(contour, f'contour_production_minimum__{luminosity}_{invmass_cut_type}')
@@ -279,6 +285,58 @@ def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, s
     save_plot('hnl_production_parameter_space_multi')
     plt.show()
 
+def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors=None, smooth=False, sigma=1, title='', savename=''):
+    """
+    Plot survival fraction on the parameter space with contours.
+
+    :param survival_fraction: Survival fraction array with shape (masses, mixings).
+    :param labels: Optional list of labels for the contour.
+    :param colors: Optional color for the contour line.
+    :param smooth: Apply Gaussian smoothing to the survival fraction.
+    :param sigma: Standard deviation for Gaussian kernel if smoothing is applied.
+    """
+    mass_grid, mixing_grid = np.meshgrid(
+        np.linspace(min(mass_hnl), max(mass_hnl), 100),
+        np.logspace(np.log10(min(mixing)), np.log10(max(mixing)), 100)
+    )
+
+    plt.figure(figsize=(10, 6))
+
+    if labels is None:
+        labels = 'Survival Fraction'
+    if colors is None:
+        colors = 'blue'
+
+    if smooth:
+        survival_fraction = gaussian_filter(survival_fraction, sigma=sigma)
+
+    # Interpolate survival fraction onto the grid
+    # Assuming mass_hnl and mixing are your mass and mixing values corresponding to survival_fraction
+    survival_grid = griddata(
+        (np.repeat(mass_hnl, len(mixing)), np.tile(mixing, len(mass_hnl))),
+        survival_fraction.flatten(),
+        (mass_grid, mixing_grid),
+        method='linear'
+    )
+
+    plt.contourf(
+        mass_grid, mixing_grid, survival_grid,
+        levels=np.linspace(survival_fraction.min(), survival_fraction.max(), 50),
+        cmap=plt.cm.viridis
+    )
+    plt.colorbar(label='Survival Fraction')
+    
+    plt.plot([], [], color=colors, linewidth=2, linestyle='-', label=labels)
+
+    plt.xscale('linear')
+    plt.yscale('log')
+    plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
+    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
+    plt.title(title)
+    plt.grid(alpha=0.25)
+    save_plot(savename)
+    plt.show()
+
 def mean_from_2d_survival(arr):
     temp_array = [np.mean(i) for i in arr]
     return temp_array
@@ -292,7 +350,22 @@ def save_plot(name, dpi=200):
     plt.savefig(plot_path, dpi=dpi)
     print(f"Plot saved to {plot_path}")
 
+def expand_and_copy_array(input_array):
+    """
+    Expand an array of shape (masses, particles) to shape (masses, mixings, particles)
+    by copying the input array for each mixing.
 
+    :param input_array: Array of shape (masses, particles).
+    :param target_mixings: Number of mixings to expand to.
+    :return: Expanded array of shape (masses, mixings, particles).
+    """
+    # Ensure the input_array is at least 3D (masses, 1, particles)
+    input_array_expanded = np.expand_dims(input_array, axis=1)
+    
+    # Repeat the array across the mixing dimension
+    expanded_array = np.tile(input_array_expanded, (1, len(mixing), 1))
+    
+    return expanded_array
 
 def plot_decay_vertices_with_trajectories(r_labs, survival_bool, momenta, index_mass, index_mixing, title='Decay Vertices and Trajectories'):
     """
@@ -397,7 +470,7 @@ def find_best_survival_indices(survival_dv):
 
     return index_mass, index_mixing
 
-def plot_production_heatmap(production, title='Production Rates', savename=''):
+def plot_production_heatmap(production, title='Production Rates', savename='', save_grid=False):
     # Create a meshgrid for interpolation
     mass_grid, mixing_grid = np.meshgrid(np.linspace(min(mass_hnl), max(mass_hnl), 100),
                                          np.logspace(np.log10(min(mixing)), np.log10(max(mixing)), 100))
@@ -408,7 +481,16 @@ def plot_production_heatmap(production, title='Production Rates', savename=''):
     
     # Interpolate the production values onto the meshgrid
     production_grid = griddata(points, values, (mass_grid, mixing_grid), method='linear')
-    
+    if save_grid==True:
+        current_directory = os.getcwd()
+        data_path = os.path.join(current_directory, 'data', data_folder)
+        contour_data_path = os.path.join(data_path, 'Plots', 'Plot data', 'production_grid.pkl')
+        os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)  # Ensure the directory exists
+
+        # Save the contour data using pickle
+        with open(contour_data_path, 'wb') as file:
+            pickle.dump(production_grid, file)
+        print(f"Production grid data saved to {contour_data_path}")
     plt.figure(figsize=(10, 6))
     
     # Define levels for contourf based on the range of production values
@@ -417,7 +499,14 @@ def plot_production_heatmap(production, title='Production Rates', savename=''):
     # Create a filled contour plot with interpolated production data
     contour_filled = plt.contourf(mass_grid, mixing_grid, production_grid, levels=levels, cmap='viridis', extend='both')
     plt.colorbar(contour_filled, label='Production Rate')
-    
+    if save_grid==True:
+        constants = [1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1]  
+
+        # Plot lines for each constant
+        for C in constants:
+            mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
+            mixing_for_constant = np.sqrt(C / mass_range**6)
+            plt.plot(mass_range, mixing_for_constant, '--', color='r', label=f'C={C:.1e}', alpha=0.5)
     plt.xscale('linear')
     plt.yscale('log')
     plt.xlabel('HNL Mass (GeV)')
@@ -434,6 +523,21 @@ def plot_production_heatmap(production, title='Production Rates', savename=''):
     plt.show()
 
 
+def calculate_survival_fraction(survival_array):
+    """
+    Calculate the survival fraction for each mass and mixing combination.
+
+    :param survival_array: Array of shape (masses, mixings, particles) with boolean values.
+    :return: Array of shape (masses, mixings) with survival fractions.
+    """
+    # Calculate the sum of True values (survived) along the particle dimension
+    survived = np.sum(survival_array, axis=-1)
+    # Calculate the total number of particles
+    total_particles = survival_array.shape[-1]
+    # Calculate the survival fraction
+    survival_fraction = survived / total_particles
+
+    return survival_fraction
 
 
 def plotting(momenta, batch, production_arrays, arrays):
@@ -506,7 +610,7 @@ def plotting(momenta, batch, production_arrays, arrays):
             savename='HNL_proper_time'
         )
 
-        lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing]*lorentz_factors[index_mass,index_mixing]*nat_to_m(), 'label': '$\\tau_N$','linestyle': '-'}]
+        lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing]*lorentz_factors[index_mass,index_mixing]*light_speed(), 'label': '$\\tau_N$','linestyle': '-'}]
         plot_histograms(
             data_list=lifetime_data, 
             title=f'Distribution of HNL lab decay distances for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
@@ -521,7 +625,7 @@ def plotting(momenta, batch, production_arrays, arrays):
         lifetimes_rest_selected = lifetimes_rest[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
         lorentz_factors_selected = lorentz_factors[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
 
-        normalized_decay_distances = rd_lab_norm_selected / (lifetimes_rest_selected * nat_to_m() * lorentz_factors_selected)
+        normalized_decay_distances = rd_lab_norm_selected / (lifetimes_rest_selected * light_speed() * lorentz_factors_selected)
         average_normalized_decay_distance = np.mean(normalized_decay_distances, axis=1)
 
         plt.figure(figsize=(10, 6))
@@ -545,12 +649,12 @@ def plotting(momenta, batch, production_arrays, arrays):
 
         index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=5.4e-6)
         average_survival_rate = np.mean(survival_dv_displaced, axis=2)
-        print(average_survival_rate[index_mass, index_mixing])
+        print('Survival rate for specified mixing: ', average_survival_rate[index_mass, index_mixing])
         for index_mass in range(len(mass_hnl)):
             average_lorentz_factor = np.mean(lorentz_factors[index_mass, index_mixing])
             average_lifetime_rest = np.mean(lifetimes_rest[index_mass, index_mixing])
 
-            denominator = (average_lifetime_rest * average_lorentz_factor * nat_to_m())
+            denominator = (average_lifetime_rest * average_lorentz_factor * light_speed())
             exp_arg_max = -unit_converter(r_max_l) / denominator
             exp_arg_min = -unit_converter(r_min) / denominator
             analytic_survival_probability = np.exp(np.minimum(exp_arg_min, 700)) - np.exp(np.minimum(exp_arg_max, 700))
@@ -565,18 +669,36 @@ def plotting(momenta, batch, production_arrays, arrays):
         save_plot('DV_cut_validation')
         plt.show()
 
+
     index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
     index_mass_best, index_mixing_best = find_best_survival_indices(survival_dv_displaced)
     if dynamic_plot:
         plot_decay_vertices_with_trajectories(r_lab, survival_dv_displaced,batch, index_mass_best,index_mixing_best, title=f'Surviving Decay Vertices in 3D Space for $M_N=${mass_hnl[index_mass_best]}, $\\Theta_\\tau^2 ≈$ {mixing[index_mixing_best]}')
     
-    # Parameter space and production plots:
-    plot_parameter_space_region(production_allcuts)
-    plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 
+    # Survival plots: 
+    if survival_plots:
+        print(np.shape(survival_pT_displaced))
+        print(np.shape(survival_dv_displaced))
+        plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced)), smooth=False, sigma=1, title='HNL survival (pT cut)', savename='survival_pT')
+        plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced)), smooth=False, sigma=1, title='HNL survival (invariant mass cut)', savename='survival_invmass')
+        plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced)), smooth=False, sigma=1, title='HNL survival (rapidity cut)', savename='survival_rap')
+        if invmass_cut_type == 'trivial':
+            plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced)), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
+        else:
+            plot_survival_parameter_space_regions(calculate_survival_fraction(survival_deltaR_displaced), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
+        
+        plot_survival_parameter_space_regions(calculate_survival_fraction((survival_dv_displaced)), smooth=False, sigma=1, title='HNL survival (DV cut)', savename='survival_dv')
 
-    if plot_heatmaps:
-        plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')
-        plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
-        plot_production_heatmap(production_dv, title='Production Rates (DV cut)', savename='production_dvcut')
-        plot_production_heatmap(production_invmass, title='Production Rates (Invariant mass cut)', savename='production_invmass')
+    # Parameter space and production plots:
+    if production_plots:
+        plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')
+        plot_parameter_space_region(production_invmass, title='HNL Production (invariant mass cut)', savename = 'hnl_production_invmass')
+        plot_parameter_space_regions(production_nocuts, production_dv, labels=['no cuts', 'DV'], colors=['red', 'black'], smooth=False, sigma=1) 
+        plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 
+
+        if plot_heatmaps:
+            plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')
+            #plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
+            plot_production_heatmap(production_dv, title='Production Rates (DV cut)', savename='production_dvcut', save_grid=True)
+            #plot_production_heatmap(production_invmass, title='Production Rates (Invariant mass cut)', savename='production_invmass')
     return 0

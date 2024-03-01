@@ -11,7 +11,7 @@ def main():
     batch, arrays = data_processing(momenta)
 
     # Computing N_events 
-    production_arrays = computations(momenta, batch, arrays)
+    production_arrays = computations(momenta, arrays)
 
     # Plots
     plotting(momenta, batch, production_arrays, arrays)

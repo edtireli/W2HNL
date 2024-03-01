@@ -4,6 +4,7 @@ import numpy as np
 from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 from utils.hnl import *
+import copy
 
 
 def nat_to_s():
@@ -41,27 +42,23 @@ def invmass_rdv_efficiency(r_dv, m_dv):
 
 class ParticleBatch:
     def __init__(self, momenta):
+        # Deep copy the momenta array to ensure independence
         self.momenta_dict = {
-            'boson': momenta[0],
-            'hnl': momenta[1],
-            'prompt': momenta[2],
-            'displaced_minus': momenta[3],
-            'displaced_plus': momenta[4],
-            'neutrino': momenta[5],
+            'boson': copy.deepcopy(momenta[0]),
+            'hnl': copy.deepcopy(momenta[1]),
+            'prompt': copy.deepcopy(momenta[2]),
+            'displaced_minus': copy.deepcopy(momenta[3]),
+            'displaced_plus': copy.deepcopy(momenta[4]),
+            'neutrino': copy.deepcopy(momenta[5]),
         }
         self.mass_hnl = mass_hnl 
         self.selected_mass_index = None
         self.selected_momenta = None
         self.current_particle_type = None
+        
 
     def mass(self, mass):
-        """
-        Sets the mass for the particle batch. Accepts both numeric and string inputs.
-
-        :param mass: Can be an int, float, or string representing the mass in GeV.
-        :return: Self for method chaining.
-        """
-        # Check if mass is already a numeric type, use directly; if string, parse it
+        # This method should remain largely unchanged but ensure mass_hnl is correctly initialized
         if isinstance(mass, (int, float)):
             mass_value = mass
         elif isinstance(mass, str):
@@ -71,21 +68,22 @@ class ParticleBatch:
 
         if mass_value in self.mass_hnl:
             self.selected_mass_index = self.mass_hnl.index(mass_value)
-            return self
         else:
             raise ValueError("Mass not found in the dataset.")
+        return self
 
 
     def particle(self, particle_type):
+        # This method is crucial for selecting the particle type and its momenta based on the previously set mass
         if self.selected_mass_index is None:
             raise ValueError("HNL mass must be selected before retrieving momenta.")
         if particle_type not in self.momenta_dict:
             raise ValueError(f"Particle type '{particle_type}' not recognized.")
-        
+
         self.current_particle_type = particle_type
         self.selected_momenta = self.momenta_dict[particle_type][self.selected_mass_index]
         return self
-
+    
     def get_particle_count(self):
         if self.selected_momenta is not None:
             return len(self.selected_momenta)
@@ -114,19 +112,6 @@ class ParticleBatch:
         
         # Instead of filtering selected_momenta, return the survival_mask
         return survival_mask
-    
-    def apply_mask(self, mask):
-        """
-        Apply a survival mask to the selected momenta.
-
-        :param mask: A boolean array representing survival of particles.
-        :return: Self for method chaining.
-        """
-        if self.selected_momenta is None:
-            raise ValueError("No momenta selected.")
-        # Apply the mask
-        self.selected_momenta = self.selected_momenta[mask]
-        return self
     
     def eta(self):
         """
@@ -192,19 +177,19 @@ class ParticleBatch:
         rd_lab_norm = np.linalg.norm(rd_lab, axis=1)
 
         # Create a boolean mask initially marking all particles as not surviving
-        survival_mask = np.zeros(len(p_lab), dtype=bool)
+        survival_mask_dv = np.zeros(len(p_lab), dtype=bool)
 
         # Step 4: Apply cuts based on geometry and update the survival_mask
         if cut_type == 'sphere':
-            survival_mask[(rd_lab_norm >= dv_min * nat_to_m()**-1) & (rd_lab_norm <= dv_max_long * nat_to_m()**-1)] = True
+            survival_mask_dv[(rd_lab_norm >= dv_min * nat_to_m()**-1) & (rd_lab_norm <= dv_max_long * nat_to_m()**-1)] = True
         elif cut_type == 'cylinder':
             rho = np.sqrt(rd_lab[:, 0]**2 + rd_lab[:, 1]**2)
             z = np.abs(rd_lab[:, 2])
-            survival_mask[(rd_lab_norm >= dv_min * nat_to_m()**-1) & (rho <= dv_max_trans * nat_to_m()**-1) & (z <= dv_max_long * nat_to_m()**-1)] = True
+            survival_mask_dv[(rd_lab_norm >= dv_min * nat_to_m()**-1) & (rho <= dv_max_trans * nat_to_m()**-1) & (z <= dv_max_long * nat_to_m()**-1)] = True
         else:
             raise ValueError("Invalid cut type specified.")
 
-        return survival_mask, rd_lab, td, g_lab
+        return survival_mask_dv, rd_lab, td, g_lab
 
     
     def cut_rap(self):
@@ -232,21 +217,21 @@ class ParticleBatch:
         exit_points = vProd + p * t[:, np.newaxis]
         
         # Compute survival mask based on the exit hole radius
-        survival_mask = (exit_points[:, 0]**2 + exit_points[:, 1]**2) > B**2
+        survival_mask_rap = (exit_points[:, 0]**2 + exit_points[:, 1]**2) > B**2
 
         # Return the survival mask instead of modifying selected_momenta
-        return survival_mask
+        return survival_mask_rap
 
     
     def cut_invmass(self, invmass_threshold):
         """
-        Apply a cut based on the invariant mass of the displaced_minus and displaced_plus pairs.
+        Apply a cut based on the invariant mass of the displaced_minus and displaced_plus pairs and return a survival mask.
 
         :param invmass_threshold: Invariant mass threshold as a string (e.g., '5 GeV') or a number (interpreted as GeV).
+        :return: A boolean numpy array (mask) indicating which particles survive the cut.
         """
         # Convert invmass_threshold to a float if it's a string
-        if isinstance(invmass_threshold, str):
-            invmass_threshold = float(invmass_threshold.split()[0])
+        invmass_threshold = float(invmass_threshold.split()[0]) if isinstance(invmass_threshold, str) else invmass_threshold
         
         # Ensure we have the momenta for displaced_minus and displaced_plus
         if 'displaced_minus' not in self.momenta_dict or 'displaced_plus' not in self.momenta_dict:
@@ -256,17 +241,17 @@ class ParticleBatch:
         p_minus = self.momenta_dict['displaced_minus'][self.selected_mass_index]
         p_plus = self.momenta_dict['displaced_plus'][self.selected_mass_index]
 
-        # Minkowski metric
-        minkowski = np.diag([1, -1, -1, -1])
+        # Minkowski metric for invariant mass calculation
+        minkowski_metric = np.diag([1, -1, -1, -1])
 
         # Calculate invariant mass for each pair
-        p_sum = p_minus + p_plus  # Sum of 4-momenta
-        invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, minkowski), p_sum))
+        p_sum = p_minus + p_plus  # Element-wise sum of 4-momenta vectors
+        invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, minkowski_metric), p_sum))
 
-        # Apply the cut
-        survival_mask = invariant_masses >= invmass_threshold
+        # Apply the cut and generate a survival mask
+        survival_mask_invmass = invariant_masses >= invmass_threshold
 
-        return survival_mask
+        return survival_mask_invmass
     
     def cut_deltaR(self, deltaR_threshold):
         """
@@ -288,9 +273,9 @@ class ParticleBatch:
         delta_R = np.sqrt(delta_eta**2 + delta_phi**2)
 
         # Apply the cut
-        survival_mask = delta_R >= deltaR_threshold
+        survival_mask_deltaR = delta_R >= deltaR_threshold
 
-        return survival_mask
+        return survival_mask_deltaR
 
     def _calculate_delta_eta(self, p1, p2):
         """
@@ -330,116 +315,143 @@ class ParticleBatch:
         invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, np.diag([1, -1, -1, -1])), p_sum))
         
         # Apply non-trivial invariant mass cut based on rd_lab_norm (distance) and invariant_masses
-        survival_mask = np.array([invmass_rdv_efficiency(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
+        survival_mask_invmass_nt = np.array([invmass_rdv_efficiency(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
 
-        return survival_mask
+        return survival_mask_invmass_nt
+    
+    def __deepcopy__(self, memo):
+        # Create a new instance without calling __init__
+        cls = self.__class__
+        new_instance = cls.__new__(cls)
+        memo[id(self)] = new_instance
+        
+        # Copy each attribute using deepcopy for deep copy behavior
+        for k, v in self.__dict__.items():
+            setattr(new_instance, k, copy.deepcopy(v, memo))
+        
+        return new_instance
 
 
 def survival_pT(particle_type, momentum):
     # Initialize a list to hold the survival boolean arrays for each mass
-    survival_bool_all_masses = []
-
+    survival_bool_all_masses_pT = []
+    momentum_pT = copy.deepcopy(momentum)
     for mass in mass_hnl:
-        batch = ParticleBatch(momentum)
+        original_batch = ParticleBatch(momentum_pT)
+        # Make a deep copy of the batch for this particular cut application
+        batch_pT = copy.deepcopy(original_batch)
         # Select the mass and particle type
-        batch.mass(mass).particle(particle_type)
+        batch_pT.mass(mass).particle(particle_type)
         # Apply the pT cut and retrieve the survival mask for all particles
-        survival_mask = batch.cut_pT(pT_minimum)
+        survival_mask_pT = batch_pT.cut_pT(pT_minimum)
         # Append the survival mask to the list
-        survival_bool_all_masses.append(survival_mask)
+        survival_bool_all_masses_pT.append(survival_mask_pT)
 
     # Convert the list of arrays into a single numpy array for easier handling
     # This assumes that each mass has the same number of particles, resulting in a (19, 9999) array if there are 9999 particles per mass
-    survival_bool_all_masses = np.array(survival_bool_all_masses)
+    survival_bool_all_masses_pT = np.array(survival_bool_all_masses_pT)
 
-    return survival_bool_all_masses
-
+    return survival_bool_all_masses_pT
 
 
 def survival_dv(momentum=1):
+    momentum_dv = copy.deepcopy(momentum)
     # Initialize arrays to hold the survival status and decay vertices for each particle across all masses and mixings
-    survival_bool = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
+    survival_bool_dv = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
     rd_labs = np.zeros((len(mass_hnl), len(mixing), batch_size, 3))  # rd_lab is a 3D vector
     lifetimes_rest = np.zeros((len(mass_hnl), len(mixing), batch_size))
     lorentz_factors = np.zeros((len(mass_hnl), len(mixing), batch_size))
     for i, mass in enumerate(mass_hnl):
         for j, mix in enumerate(mixing):
-            batch = ParticleBatch(momentum)
+            original_batch = ParticleBatch(momentum_dv)
+            # Make a deep copy of the batch for this particular cut application
+            batch_dv = copy.deepcopy(original_batch)
             # Apply the DV cut for each mass and mixing scenario and get decay vertices
-            survival_mask, rd_lab, td, g_lab = batch.mass(mass).particle('hnl').cut_dv(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
-            survival_bool[i, j, :] = survival_mask
+            survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+            survival_bool_dv[i, j, :] = survival_mask_dv
             rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
             lifetimes_rest[i, j, :] = td
             lorentz_factors[i, j, :] = g_lab
-    return survival_bool, rd_labs,lifetimes_rest, lorentz_factors
+    return survival_bool_dv, rd_labs,lifetimes_rest, lorentz_factors
 
 
 def survival_invmass_nontrivial(momentum=1):
     # Initialize an array to hold the survival status for each particle across all masses and mixings
-    survival_bool = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
+    survival_bool_invmass_nt = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
+    momentum_invmass_nt = copy.deepcopy(momentum)
 
     for i, mass in enumerate(mass_hnl):
         for j, mix in enumerate(mixing):
-            batch = ParticleBatch(momentum)
+            original_batch = ParticleBatch(momentum_invmass_nt)
+            # Make a deep copy of the batch for this particular cut application
+            batch_invmass_nt = copy.deepcopy(original_batch)
             # Apply the DV cut for each mass and mixing scenario
-            survival_mask = batch.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
-            survival_bool[i, j, :] = survival_mask
+            survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+            survival_bool_invmass_nt[i, j, :] = survival_mask_invmass_nt
 
-    return survival_bool
+    return survival_bool_invmass_nt
 
 
 def survival_rap(particle_type, momentum):
     # Initialize a list to hold the survival boolean arrays for each mass
-    survival_bool_all_masses = []
+    survival_bool_all_masses_rap = []
+    momentum_rap = copy.deepcopy(momentum)
 
     for mass in mass_hnl:
-        batch = ParticleBatch(momentum)
+        original_batch = ParticleBatch(momentum_rap)
+        # Make a deep copy of the batch for this particular cut application
+        batch_rap = copy.deepcopy(original_batch)
         # Select the mass and particle type, then apply the rapidity cut
-        survival_mask = batch.mass(mass).particle(particle_type).cut_rap()
+        survival_mask = batch_rap.mass(mass).particle(particle_type).cut_rap()
         # Append the survival mask to the list
-        survival_bool_all_masses.append(survival_mask)
+        survival_bool_all_masses_rap.append(survival_mask)
 
     # Convert the list of arrays into a single numpy array for easier handling
-    survival_bool_all_masses = np.array(survival_bool_all_masses)
+    survival_bool_all_masses_rap = np.array(survival_bool_all_masses_rap)
 
-    return survival_bool_all_masses
+    return survival_bool_all_masses_rap
 
 def survival_invmass(cut_condition, momentum):
     # Initialize a list to hold the survival boolean arrays for each mass
-    survival_bool_all_masses = []
-
+    survival_bool_all_masses_invmass = []
+    momentum_invmass = copy.deepcopy(momentum)
     for mass in mass_hnl:
-        batch = ParticleBatch(momentum)
+        original_batch = ParticleBatch(momentum_invmass)
+        # Make a deep copy of the batch for this particular cut application
+        batch_invmass = copy.deepcopy(original_batch)
         # Select the mass, apply the invariant mass cut to the 'displaced_minus' and 'displaced_plus' pair
-        survival_mask = batch.mass(mass).cut_invmass(cut_condition)
+        survival_mask_invmass = batch_invmass.mass(mass).cut_invmass(cut_condition)
         # Append the survival mask to the list
-        survival_bool_all_masses.append(survival_mask)
+        survival_bool_all_masses_invmass.append(survival_mask_invmass)
 
     # Convert the list of arrays into a single numpy array
-    survival_bool_all_masses = np.array(survival_bool_all_masses)
+    survival_bool_all_masses_invmass = np.array(survival_bool_all_masses_invmass)
 
-    return survival_bool_all_masses
+    return survival_bool_all_masses_invmass
 
 
 def survival_deltaR(cut_condition, momentum):
     # Initialize a list to hold the survival boolean arrays for each mass
-    survival_bool_all_masses = []
-
+    survival_bool_all_masses_deltaR = []
+    momentum_deltaR = copy.deepcopy(momentum)
     for mass in mass_hnl:
-        batch = ParticleBatch(momentum)
+        original_batch = ParticleBatch(momentum_deltaR)
+        # Make a deep copy of the batch for this particular cut application
+        batch_deltaR = copy.deepcopy(original_batch)
         # Select the mass, apply the Delta R cut to the 'displaced_minus' and 'displaced_plus' pair
-        survival_mask = batch.mass(mass).cut_deltaR(cut_condition)
+        survival_mask = batch_deltaR.mass(mass).cut_deltaR(cut_condition)
         # Append the survival mask to the list
-        survival_bool_all_masses.append(survival_mask)
+        survival_bool_all_masses_deltaR.append(survival_mask)
 
     # Convert the list of arrays into a single numpy array
-    survival_bool_all_masses = np.array(survival_bool_all_masses)
+    survival_bool_all_masses_deltaR = np.array(survival_bool_all_masses_deltaR)
 
-    return survival_bool_all_masses
+    return survival_bool_all_masses_deltaR
 
 
 def data_processing(momenta):
     print('--------------------------- Data processing --------------------------')
+
     batch = ParticleBatch(momenta)
     
     print('Computing cut: Transverse momentum')
@@ -466,4 +478,5 @@ def data_processing(momenta):
               np.array(survival_deltaR_displaced), 
               np.array(r_lab), np.array(lifetimes_rest), np.array(lorentz_factors)
      ) # defining a tuple for easier management of survival arrays on main
+    
     return batch, arrays

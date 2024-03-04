@@ -362,10 +362,14 @@ def plot_survival_fractions_simple(survival_arrays, labels, title, savename):
         mean_survival_fractions = value.mean(axis=1)
         plt.plot(mass_hnl, mean_survival_fractions, color=colors[i], label=labels[i], linewidth=2, alpha=0.75, linestyle=linstyles[i])
 
-    plt.legend(loc='upper right', frameon=True)
+    plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
+
+    plt.legend(loc='lower right', frameon=True)
     plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
     plt.ylabel('Survival Fraction', size=12)
     plt.title(title)
+    plt.xticks(mass_hnl)
+    plt.yticks([i*1e-1 for i in range(0,11)])
     plt.grid(alpha=0.25)
     save_plot(savename)
     plt.show()
@@ -804,7 +808,7 @@ def plotting(momenta, batch, production_arrays, arrays):
             #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced)), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
             
             # Simple survival fraction plots
-            plot_survival_fractions_simple([survival_pt, survival_invmass, survival_rapidity, survival_deltaR], ['$p_T$', '$M_{\\mu\\mu}$', '$\eta$', '$\Delta_R$'], 'Survival fractions', 'survival_fractions_pt_M_eta')
+            plot_survival_fractions_simple([survival_pt, survival_invmass, survival_rapidity, survival_deltaR], ['$p_T$', '$M_{\\mu\\mu}$', '$\eta$', '$\Delta_R$'], 'Survival fractions', 'survival_fractions_simple')
         else:
             # Heatmap (necessary) because now invariant mass depends on mixing
             plot_survival_fractions_simple([survival_pt, survival_invmass, survival_rapidity, survival_deltaR], ['$p_T$', '$\eta$', '$\Delta_R$'], 'Survival fractions', savename='survival_fractions_simple')

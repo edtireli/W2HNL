@@ -163,9 +163,9 @@ def plot_survival_3d(survival_array, cut_type):
     # Set major and minor ticks
     plt.yticks(major_ticks, labels=[f"1e{val}" for val in major_ticks])
 
-    # Optionally, add minor ticks for better granularity
+    
     from matplotlib.ticker import AutoMinorLocator
-    plt.gca().yaxis.set_minor_locator(AutoMinorLocator(10))  # Adjust 10 to the number of minor intervals you want
+    plt.gca().yaxis.set_minor_locator(AutoMinorLocator(10)) 
     plt.grid(which='minor', color='gray', linestyle=':', linewidth=0.5)
 
     plt.show()
@@ -213,7 +213,6 @@ def save_survival_data(survival_data, name):
     print(f"Survival data saved to {survival_data_path}")    
 
 def plot_parameter_space_region(production_allcuts, title='', savename=''):
-    # Ensure production_minimum is set to a meaningful threshold based on your context
     mass_grid, mixing_grid = np.meshgrid(np.linspace(min(mass_hnl), max(mass_hnl), 100),
                                          np.logspace(np.log10(min(mixing)), np.log10(max(mixing)), 100))
 
@@ -345,6 +344,32 @@ def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, s
     save_plot(savename)
     plt.show()
 
+def plot_survival_fractions_simple(survival_arrays, labels, title, savename):
+    """
+    Plot survival fractions for various cut conditions with simplified inputs.
+
+    :param survival_arrays: List of arrays containing survival fractions.
+    :param labels: List of labels for each array's plot.
+    :param title: Title for the plot.
+    :param savename: Filename for saving the plot.
+    """
+    plt.figure(figsize=(10, 6))
+
+    colors = ['red', 'black', 'blue', 'green']
+    linstyles = ['-','--','dotted','-.']
+
+    for i, value in enumerate(survival_arrays):
+        mean_survival_fractions = value.mean(axis=1)
+        plt.plot(mass_hnl, mean_survival_fractions, color=colors[i], label=labels[i], linewidth=2, alpha=0.75, linestyle=linstyles[i])
+
+    plt.legend(loc='upper right', frameon=True)
+    plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
+    plt.ylabel('Survival Fraction', size=12)
+    plt.title(title)
+    plt.grid(alpha=0.25)
+    save_plot(savename)
+    plt.show()
+
 def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors=None, smooth=False, sigma=1, title='', savename='', plot_mass_mixing_lines=False):
     """
     Plot survival fraction on the parameter space with contours.
@@ -371,7 +396,6 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
         survival_fraction = gaussian_filter(survival_fraction, sigma=sigma)
 
     # Interpolate survival fraction onto the grid
-    # Assuming mass_hnl and mixing are your mass and mixing values corresponding to survival_fraction
     survival_grid = griddata(
         (np.repeat(mass_hnl, len(mixing)), np.tile(mixing, len(mass_hnl))),
         survival_fraction.flatten(),
@@ -387,18 +411,17 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
     plt.colorbar(label='Survival Fraction')
     
 
-    constants=[1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3]
+    constants=[1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3,1e4,1e5]
 
     if plot_mass_mixing_lines:
         for C in constants:
-            if C >= 1e-4:
-                mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
-                mixing_for_constant = (C / mass_range**6)
-                plt.plot(mass_range, mixing_for_constant, '--', color='red', label=f'C={C:.1e}', alpha=0.4)
+            mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
+            mixing_for_constant = (C / mass_range**6)
+            plt.plot(mass_range, mixing_for_constant, '--', color='red', label=f'C={C:.1e}', alpha=0.4)
 
-                label_index = len(mass_range) // 2  # Midpoint
-                label_y_position = mixing_for_constant[label_index] * 0.5
-
+            label_index = len(mass_range) // 2  # Midpoint
+            label_y_position = mixing_for_constant[label_index] * 0.5
+            if C > 1e-4 and C < 1e4:
                 plt.text(mass_range[label_index], label_y_position, 
                             f'$c\\tau\\gamma = {C:.1e}$', color='red', fontsize=9,
                             ha='center', va='bottom', rotation=-22, alpha=0.4)
@@ -606,7 +629,7 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
     # plt.contour(mass_grid, mixing_grid, production_grid, levels=[threshold], colors='red', linewidths=2)
     
     if savename:
-        save_plot(savename)  # Assuming save_plot is a custom function for saving the plot
+        save_plot(savename)  
     
     plt.show()
 
@@ -766,14 +789,29 @@ def plotting(momenta, batch, production_arrays, arrays):
     # Survival plots: 
     if survival_plots:
         plot_survival_parameter_space_regions(calculate_survival_fraction((survival_dv_displaced)), smooth=False, sigma=1, title='HNL survival (DV cut)', savename='survival_dv', plot_mass_mixing_lines = True)
-        plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced)), smooth=False, sigma=1, title='HNL survival (pT cut)', savename='survival_pT')
-        plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced)), smooth=False, sigma=1, title='HNL survival (invariant mass cut)', savename='survival_invmass')
-        plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced)), smooth=False, sigma=1, title='HNL survival (rapidity cut)', savename='survival_rap')
-        if invmass_cut_type == 'trivial':
-            plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced)), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
-        else:
-            plot_survival_parameter_space_regions(calculate_survival_fraction(survival_deltaR_displaced), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
+        survival_pt = calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced))
+        survival_invmass = calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced))
+        survival_rapidity = calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced))
+        survival_deltaR = calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced))
         
+        # Old heatmaps that look nice, but dont depend on mixing (so its unecessary having them as heatmaps)
+        #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced)), smooth=False, sigma=1, title='HNL survival (pT cut)', savename='survival_pT')
+        #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced)), smooth=False, sigma=1, title='HNL survival (invariant mass cut)', savename='survival_invmass')
+        #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced)), smooth=False, sigma=1, title='HNL survival (rapidity cut)', savename='survival_rap')
+        
+        if invmass_cut_type == 'trivial':
+            # Heatmap (unecessary)
+            #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced)), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
+            
+            # Simple survival fraction plots
+            plot_survival_fractions_simple([survival_pt, survival_invmass, survival_rapidity, survival_deltaR], ['$p_T$', '$M_{\\mu\\mu}$', '$\eta$', '$\Delta_R$'], 'Survival fractions', 'survival_fractions_pt_M_eta')
+        else:
+            # Heatmap (necessary) because now invariant mass depends on mixing
+            plot_survival_fractions_simple([survival_pt, survival_invmass, survival_rapidity, survival_deltaR], ['$p_T$', '$\eta$', '$\Delta_R$'], 'Survival fractions', savename='survival_fractions_simple')
+            
+            # Simple survival fraction plots
+            plot_survival_parameter_space_regions(calculate_survival_fraction(survival_deltaR_displaced), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
+
     # Parameter space and production plots:
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')    
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
@@ -783,7 +821,9 @@ def plotting(momenta, batch, production_arrays, arrays):
 
         if plot_heatmaps:
             plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')
-            #plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
             plot_production_heatmap(production_dv, title='Production Rates (DV cut)', savename='production_dvcut', save_grid=True)
+
+            # Old and unecessary
+            #plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
             #plot_production_heatmap(production_invmass, title='Production Rates (Invariant mass cut)', savename='production_invmass')
     return 0

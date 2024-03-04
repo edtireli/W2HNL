@@ -21,3 +21,5 @@ production_minimum   = 3 # The minimum number of HNLs produced within the parame
 production_minimum_secondary = 10 # A secondary production minimum
 
 mixing = np.logspace(0,-8,200)
+
+rng_seed = 'honeydew' #RNG seed

@@ -15,5 +15,3 @@ pid_prompt_lepton    = 15 # 11=e, 13 = muon, 15 = tau
 pid_displaced_lepton = 13 # 11=e, 13 = muon, 15 = tau, here we assume a symmetric decay to lepton+ and lepton- of the same flavour
 pid_neutrino         = 16 # 12 = ve, 14 = vm, 16 = vt
 pid_HNL              = 9900016 # HNL of SM flavour tau
-
-rng_seed = 'honeydew'

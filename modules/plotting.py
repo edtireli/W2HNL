@@ -252,11 +252,40 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
     save_plot(savename)
     plt.show()
 
-    save_contour_data(contour, f'contour_production_minimum__{luminosity}_{invmass_cut_type}')
-    if np.min(production_grid) <= production_minimum_secondary <= np.max(production_grid):
-        save_contour_data(contour2, f'contour_production_minimum_secondary_{luminosity}_{invmass_cut_type}')
+    save_data(mass_grid, mixing_grid, production_grid, f'contour_production_minimum_{luminosity}_{invmass_cut_type}.npy')
 
-def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, smooth=False, sigma=1):
+def save_data(mass_grid, mixing_grid, production_grid, filename):
+    current_directory = os.getcwd()
+    data_path = os.path.join(current_directory, 'data', data_folder)
+    file_path = os.path.join(data_path, 'Plots', 'Plot data', filename)
+    os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)  # Ensure the directory exists
+    with open(file_path, 'wb') as f:
+        np.save(f, mass_grid)
+        np.save(f, mixing_grid)
+        np.save(f, production_grid)
+        print(f'Production data saved to {filename}')
+
+def load_data(filename):
+    with open(filename, 'rb') as f:
+        mass_grid = np.load(f)
+        mixing_grid = np.load(f)
+        production_grid = np.load(f)
+    return mass_grid, mixing_grid, production_grid
+
+def plot_from_saved_data(filename):
+    mass_grid, mixing_grid, production_grid = load_data(filename)
+    plt.figure(figsize=(10, 6))
+    levels = np.linspace(0, production_grid.max(), 5)
+    contour_filled = plt.contourf(mass_grid, mixing_grid, production_grid, levels=levels, extend='max', cmap='Greens')
+    plt.colorbar(contour_filled, label='Production')
+    plt.xscale('linear')
+    plt.yscale('log')
+    plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
+    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
+    plt.grid(alpha=0.25)
+    plt.show()
+    
+def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, smooth=False, sigma=1, savename):
     """
     Plot multiple production arrays on the same parameter space with contours.
 
@@ -313,7 +342,7 @@ def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, s
     plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
 
     plt.grid(alpha=0.25)
-    save_plot('hnl_production_parameter_space_multi')
+    save_plot(savename)
     plt.show()
 
 def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors=None, smooth=False, sigma=1, title='', savename='', plot_mass_mixing_lines=False):
@@ -535,16 +564,17 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
     
     # Interpolate the production values onto the meshgrid
     production_grid = griddata(points, values, (mass_grid, mixing_grid), method='linear')
-    if save_grid==True:
+    if save_grid:
         current_directory = os.getcwd()
         data_path = os.path.join(current_directory, 'data', data_folder)
-        contour_data_path = os.path.join(data_path, 'Plots', 'Plot data', 'production_grid.pkl')
-        os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)  # Ensure the directory exists
+        save_path = os.path.join(data_path, 'Plots', 'Plot data')
+        os.makedirs(save_path, exist_ok=True)  # Ensure the directory exists
+        
+        data_to_save = (mass_grid, mixing_grid, production_grid, values)
+        with open(os.path.join(save_path, f'{savename}.pkl'), 'wb') as file:
+            pickle.dump(data_to_save, file)
+        print(f"Data saved to {os.path.join(save_path, f'{savename}.pkl')}")
 
-        # Save the contour data using pickle
-        with open(contour_data_path, 'wb') as file:
-            pickle.dump(production_grid, file)
-        print(f"Production grid data saved to {contour_data_path}")
     plt.figure(figsize=(10, 6))
     
     # Define levels for contourf based on the range of production values
@@ -746,10 +776,10 @@ def plotting(momenta, batch, production_arrays, arrays):
         
     # Parameter space and production plots:
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')    
+    plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
     if production_plots:
         plot_parameter_space_region(production_invmass, title='HNL Production (invariant mass cut)', savename = 'hnl_production_invmass')
-        plot_parameter_space_regions(production_nocuts, production_dv, labels=['no cuts', 'DV'], colors=['red', 'black'], smooth=False, sigma=1) 
-        plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1) 
+        plot_parameter_space_regions(production_nocuts, production_dv, labels=['no cuts', 'DV'], colors=['red', 'black'], smooth=False, sigma=1, savename = 'hnl_production_parameter_space_dv') 
 
         if plot_heatmaps:
             plot_production_heatmap(production_allcuts, title='Production Rates (all cuts)', savename='production_allcuts')

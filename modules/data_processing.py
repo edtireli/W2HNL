@@ -221,31 +221,64 @@ class ParticleBatch:
         # Return the survival mask instead of modifying selected_momenta
         return survival_mask_rap
 
-    
-    def cut_invmass(self, invmass_threshold):
+    def phi(self):
         """
-        Apply a cut based on the invariant mass of the displaced_minus and displaced_plus pairs and return a survival mask.
+        Calculate the azimuthal angle of the selected particles.
+
+        :return: A numpy array containing the azimuthal angles of the selected particles.
+        """
+        return np.arctan2(self.py(), self.px())
+    
+    def cut_invmass(self, invmass_threshold, experimental=False):
+        """
+        Apply a cut based on the invariant mass of the displaced_minus and displaced_plus pairs and return a survival mask,
+        with an option to use the experimental calculation method.
 
         :param invmass_threshold: Invariant mass threshold as a string (e.g., '5 GeV') or a number (interpreted as GeV).
+        :param experimental: Boolean flag to use the experimental method for invariant mass calculation.
         :return: A boolean numpy array (mask) indicating which particles survive the cut.
         """
         # Convert invmass_threshold to a float if it's a string
         invmass_threshold = float(invmass_threshold.split()[0]) if isinstance(invmass_threshold, str) else invmass_threshold
         
-        # Ensure we have the momenta for displaced_minus and displaced_plus
-        if 'displaced_minus' not in self.momenta_dict or 'displaced_plus' not in self.momenta_dict:
-            raise ValueError("Both displaced_minus and displaced_plus momenta must be present.")
+        if not experimental:
+            # Original method
+            # Ensure we have the momenta for displaced_minus and displaced_plus
+            if 'displaced_minus' not in self.momenta_dict or 'displaced_plus' not in self.momenta_dict:
+                raise ValueError("Both displaced_minus and displaced_plus momenta must be present.")
 
-        # Retrieve momenta
-        p_minus = self.momenta_dict['displaced_minus'][self.selected_mass_index]
-        p_plus = self.momenta_dict['displaced_plus'][self.selected_mass_index]
+            # Retrieve momenta
+            p_minus = self.momenta_dict['displaced_minus'][self.selected_mass_index]
+            p_plus = self.momenta_dict['displaced_plus'][self.selected_mass_index]
 
-        # Minkowski metric for invariant mass calculation
-        minkowski_metric = np.diag([1, -1, -1, -1])
+            # Minkowski metric for invariant mass calculation
+            minkowski_metric = np.diag([1, -1, -1, -1])
 
-        # Calculate invariant mass for each pair
-        p_sum = p_minus + p_plus  # Element-wise sum of 4-momenta vectors
-        invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, minkowski_metric), p_sum))
+            # Calculate invariant mass for each pair
+            p_sum = p_minus + p_plus  # Element-wise sum of 4-momenta vectors
+            invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, minkowski_metric), p_sum))
+        else:
+            # Experimental method
+            # Ensure we have the necessary particle data
+            if 'displaced_minus' not in self.momenta_dict or 'displaced_plus' not in self.momenta_dict:
+                raise ValueError("Both displaced_minus and displaced_plus data must be present for experimental calculation.")
+
+            # Retrieve transverse momentum, pseudorapidity, and azimuthal angles
+            self.particle('displaced_minus')
+            eta1 = self.eta()
+            phi1 = self.phi()
+            pT1 = self.pT()
+
+            self.particle('displaced_plus')
+            eta2 = self.eta()
+            phi2 = self.phi()
+            pT2 = self.pT()
+
+            # Calculate invariant mass squared for each pair
+            m_squared = 2 * pT1 * pT2 * (np.cosh(eta1 - eta2) - np.cos(phi1 - phi2))
+
+            # Take the square root of m_squared to get the invariant mass
+            invariant_masses = np.sqrt(np.maximum(m_squared, 0))  # Ensure non-negative under sqrt
 
         # Apply the cut and generate a survival mask
         survival_mask_invmass = invariant_masses >= invmass_threshold
@@ -410,7 +443,7 @@ def survival_rap(particle_type, momentum):
 
     return survival_bool_all_masses_rap
 
-def survival_invmass(cut_condition, momentum):
+def survival_invmass(cut_condition, momentum, experimental_trigger = False):
     # Initialize a list to hold the survival boolean arrays for each mass
     survival_bool_all_masses_invmass = []
     momentum_invmass = copy.deepcopy(momentum)
@@ -419,7 +452,7 @@ def survival_invmass(cut_condition, momentum):
         # Make a deep copy of the batch for this particular cut application
         batch_invmass = copy.deepcopy(original_batch)
         # Select the mass, apply the invariant mass cut to the 'displaced_minus' and 'displaced_plus' pair
-        survival_mask_invmass = batch_invmass.mass(mass).cut_invmass(cut_condition)
+        survival_mask_invmass = batch_invmass.mass(mass).cut_invmass(cut_condition, experimental=experimental_trigger)
         # Append the survival mask to the list
         survival_bool_all_masses_invmass.append(survival_mask_invmass)
 
@@ -464,7 +497,7 @@ def data_processing(momenta):
         survival_invmass_displaced = survival_invmass_nontrivial(momentum=momenta)
     else:
         print('Computing cut: Invariant mass')
-        survival_invmass_displaced = survival_invmass(invmass_minimum, momentum=momenta)
+        survival_invmass_displaced = survival_invmass(invmass_minimum, momentum=momenta, experimental_trigger=invmass_experimental)
         
     print('Computing cut: Angular seperation')
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)

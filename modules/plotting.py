@@ -460,6 +460,14 @@ def save_plot(name, dpi=200):
     plt.savefig(plot_path, dpi=dpi)
     print(f"Plot saved to {plot_path}")
 
+def save_array(array, name=''):
+    current_directory = os.getcwd()                                         # Current path
+    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    array_path         = os.path.join(data_path, 'Plots', 'Plot data', f'{name}.npy')
+    os.makedirs(os.path.join(data_path, 'Plots'), exist_ok=True) # Making directory if not already exists
+
+    np.save(array_path, array)
+
 def expand_and_copy_array(input_array):
     """
     Expand an array of shape (masses, particles) to shape (masses, mixings, particles)
@@ -565,6 +573,18 @@ def find_closest_indices(target_mass, target_mixing):
 
     return mass_index, mixing_index
 
+def compute_analytic_survival(gammas):
+        survival_array = np.zeros((len(mass_hnl), len(mixing)))
+        for i, m in enumerate(mass_hnl):
+            for j, mix in enumerate(mixing):
+                angles = [0, 0, mix]
+                tau = HNL(m, angles, False).computeNLifetime()
+                gamma = gammas[i]
+                P = np.exp(-unit_converter(r_min) / (light_speed() * tau * gamma)) - np.exp(-unit_converter(r_max_l) / (light_speed() * tau * gamma))
+                survival_fraction = P
+                survival_array[i, j] = survival_fraction
+        return survival_array
+
 def find_best_survival_indices(survival_dv):
     """
     Find the indices of the mass and mixing scenario with the highest survival rate.
@@ -661,6 +681,8 @@ def plotting(momenta, batch, production_arrays, arrays):
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
     production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass = production_arrays
     
+    average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
+
     current_directory = os.getcwd()
     data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
     plot_path         = os.path.join(data_path, 'Plots')
@@ -752,7 +774,6 @@ def plotting(momenta, batch, production_arrays, arrays):
         save_plot('Lctg')
         plt.show()
         
-        average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
         plt.figure(figsize=(10, 6))
         plt.scatter(mass_hnl, average_lorentz_factors, linestyle='-', color='k', alpha=0.75, s=4)
         plt.xlabel('HNL mass $M_N$ (GeV)')
@@ -783,6 +804,7 @@ def plotting(momenta, batch, production_arrays, arrays):
         plt.legend()
         save_plot('DV_cut_validation')
         plt.show()
+        save_array(average_lorentz_factor, name='average_lorentz_factor')
 
 
     index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
@@ -793,6 +815,10 @@ def plotting(momenta, batch, production_arrays, arrays):
     # Survival plots: 
     if survival_plots:
         plot_survival_parameter_space_regions(calculate_survival_fraction((survival_dv_displaced)), smooth=False, sigma=1, title='HNL survival (DV cut)', savename='survival_dv', plot_mass_mixing_lines = True)
+        
+        survival_dv_analytic = compute_analytic_survival(average_lorentz_factors)
+        plot_survival_parameter_space_regions(survival_dv_analytic, smooth=False, sigma=1, title='HNL survival (analytic DV cut)', savename='survival_dv_analytic', plot_mass_mixing_lines = True)
+        
         survival_pt = calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced))
         survival_invmass = calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced))
         survival_rapidity = calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced))
@@ -830,4 +856,5 @@ def plotting(momenta, batch, production_arrays, arrays):
             # Old and unecessary
             #plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
             #plot_production_heatmap(production_invmass, title='Production Rates (Invariant mass cut)', savename='production_invmass')
+    
     return 0

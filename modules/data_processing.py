@@ -148,7 +148,7 @@ class ParticleBatch:
             angles = angle_sq
         
         # Assuming HNL is a class or function you have defined elsewhere for calculating the HNL's lifetime
-        tau = HNL(m_HNL, angles, False).computeNLifetime() * (1/nat_to_s())
+        tau = HNL(m_HNL, angles, False).computeNLifetime()
 
         return tau
     
@@ -169,6 +169,8 @@ class ParticleBatch:
         # Multiply decay times by Lorentz factor to get decay times in lab frame
         td_lab = g_lab * td
 
+        decay_length_lab = td_lab * light_speed() 
+        
         # Step 3: Calculate decay positions in 3D space
         rd_lab = (p_lab[:, 1:4].T * (td_lab / p_lab[:, 0])).T
         
@@ -180,11 +182,11 @@ class ParticleBatch:
 
         # Step 4: Apply cuts based on geometry and update the survival_mask
         if cut_type == 'sphere':
-            survival_mask_dv[(rd_lab_norm >= dv_min * nat_to_m()**-1) & (rd_lab_norm <= dv_max_long * nat_to_m()**-1)] = True
+            survival_mask_dv[(decay_length_lab >= dv_min) & (decay_length_lab <= dv_max_long)] = True
         elif cut_type == 'cylinder':
             rho = np.sqrt(rd_lab[:, 0]**2 + rd_lab[:, 1]**2)
             z = np.abs(rd_lab[:, 2])
-            survival_mask_dv[(rd_lab_norm >= dv_min * nat_to_m()**-1) & (rho <= dv_max_trans * nat_to_m()**-1) & (z <= dv_max_long * nat_to_m()**-1)] = True
+            survival_mask_dv[(rd_lab_norm * light_speed() >= dv_min) & (rho <= dv_max_trans) & (z * light_speed() <= dv_max_long)] = True
         else:
             raise ValueError("Invalid cut type specified.")
 

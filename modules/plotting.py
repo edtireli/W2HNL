@@ -13,12 +13,13 @@ import glob
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from ipywidgets import interact
+from matplotlib import cm
 
 
 #Plot triggers (enable/disable for extra plots):
 
 # Delete all stored images in Plots subfolder before saving new
-delete_png_before_use = True
+delete_png_before_use = False
 
 # Simple pT and rapidity plots
 preliminary_plots = False
@@ -213,45 +214,36 @@ def save_survival_data(survival_data, name):
     print(f"Survival data saved to {survival_data_path}")    
 
 def plot_parameter_space_region(production_allcuts, title='', savename=''):
-    mass_grid, mixing_grid = np.meshgrid(np.linspace(min(mass_hnl), max(mass_hnl), 100),
-                                         np.logspace(np.log10(min(mixing)), np.log10(max(mixing)), 100))
-
-    points = np.array([np.repeat(mass_hnl, len(mixing)), np.tile(mixing, len(mass_hnl))]).T
-    values = production_allcuts.flatten()
-
-    # Interpolate onto the grid
-    production_grid = griddata(points, values, (mass_grid, mixing_grid), method='linear')
-
     plt.figure(figsize=(10, 6))
-    
-    levels = np.linspace(0, values.max(), 5) # for continuous use np.linspace(0, values.max(), 100) and for discrete use np.array([0, production_minimum, values.max()])
-    contour_filled = plt.contourf(mass_grid, mixing_grid, production_grid, levels=levels, extend='max', cmap='Greens')
-    plt.colorbar(contour_filled, label='Production')
+    X, Y = np.meshgrid(mass_hnl, mixing)
 
-    # Highlight the region where production meets or exceeds the minimum threshold
-    if np.any(production_grid >= production_minimum):
-        contour = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum], colors='red', linewidths=1, linestyles='-')
-        plt.clabel(contour, inline=True, fontsize=6, fmt='{:.0f}'.format(production_minimum))
+    cmap = plt.get_cmap('viridis')
+    mesh = plt.pcolormesh(X, Y, production_allcuts.T, cmap=cmap, shading='auto')
+    plt.colorbar(mesh, label='Survival Fraction')
 
-    # Add a new contour line for production_minimum_2 in blue, only if within range
-    if np.min(production_grid) <= production_minimum_secondary <= np.max(production_grid):
-        contour2 = plt.contour(mass_grid, mixing_grid, production_grid, levels=[production_minimum_secondary], colors='blue', linewidths=1, linestyles='-')
-        plt.clabel(contour2, inline=True, fontsize=6, fmt='{:.0f}'.format(production_minimum_secondary))
+    # Draw contours around regions where production exceeds the minimum thresholds
+    if production_minimum is not None:
+        mask_min = production_allcuts.T >= production_minimum  # Transpose to align dimensions
+        plt.contour(X, Y, mask_min.astype(int), levels=[0.5], colors='red', linewidths=1.5)
+
+    if production_minimum_secondary is not None:
+        mask_min_2 = production_allcuts.T >= production_minimum_secondary
+        plt.contour(X, Y, mask_min_2.astype(int), levels=[0.5], colors='blue', linewidths=1.5)
 
     plt.xscale('linear')
     plt.yscale('log')
+    plt.ylim(min(mixing), max(mixing))
     plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
-    plt.grid(alpha=0.25)
     plt.title(title)
+    plt.grid(alpha=0.25)
 
     # Connect the key press event to the handler
     plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
 
-    save_plot(savename)
-    plt.show()
-
-    save_data(mass_grid, mixing_grid, production_grid, f'contour_production_minimum_{luminosity}_{invmass_cut_type}.npy')
+    # Save plot if savename is provided
+    if savename:
+        save_plot(savename)
 
 def save_data(mass_grid, mixing_grid, production_grid, filename):
     current_directory = os.getcwd()
@@ -374,7 +366,7 @@ def plot_survival_fractions_simple(survival_arrays, labels, title, savename):
     save_plot(savename)
     plt.show()
 
-def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors=None, smooth=False, sigma=1, title='', savename='', plot_mass_mixing_lines=False):
+def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors=None, title='', savename='', plot_mass_mixing_lines=False):
     """
     Plot survival fraction on the parameter space with contours.
 
@@ -395,9 +387,6 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
         labels = 'Survival Fraction'
     if colors is None:
         colors = 'blue'
-
-    if smooth:
-        survival_fraction = gaussian_filter(survival_fraction, sigma=sigma)
 
     # Interpolate survival fraction onto the grid
     survival_grid = griddata(
@@ -445,6 +434,57 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
     plt.grid(alpha=0.25)
     save_plot(savename)
     save_survival_data(survival_fraction, savename)
+    plt.show()
+
+def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, labels=None, colors=None, title='', savename='', plot_mass_mixing_lines=False):
+    """
+    Plot survival fraction on the parameter space directly using the actual survival values.
+
+    :param survival_fraction: Survival fraction array with shape (masses, mixings).
+    :param labels: Optional list of labels for the plot.
+    :param colors: Optional color for the plot.
+    :param title: Title of the plot.
+    :param savename: Filename to save the plot.
+    :param plot_mass_mixing_lines: Boolean to plot mass-mixing lines.
+    """
+    plt.figure(figsize=(10, 6))
+
+    # Assuming mass_hnl and mixing are global variables defining the axes.
+    X, Y = np.meshgrid(mass_hnl, mixing)
+    
+    # Use pcolormesh to plot the survival fraction directly.
+    cmap = plt.get_cmap('viridis')
+    mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, shading='auto')  # Transpose to align dimensions
+    plt.colorbar(mesh, label='Survival Fraction')
+
+    if plot_mass_mixing_lines:
+        constants = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5]
+        for C in constants:
+            mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
+            mixing_for_constant = C / mass_range**6
+            plt.plot(mass_range, mixing_for_constant, '--', color='red', label=f'C={C:.1e}', alpha=0.4)
+
+            label_index = len(mass_range) // 2  # Midpoint for placing text
+            label_y_position = mixing_for_constant[label_index] * 0.5
+            if C > 1e-4 and C < 1e4:
+                plt.text(mass_range[label_index], label_y_position, f'$c\\tau\\gamma = {C:.1e}$', color='red', fontsize=9,
+                         ha='center', va='bottom', rotation=-22, alpha=0.4)
+
+    plt.xscale('linear')
+    plt.yscale('log')
+    plt.ylim(min(mixing), max(mixing))
+    plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
+    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
+    plt.title(title)
+    plt.grid(alpha=0.25)
+
+    # Connect the key press event to the handler
+    plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
+
+    # Save plot if savename is provided
+    if savename:
+        save_plot(savename)
+    
     plt.show()
 
 def mean_from_2d_survival(arr):
@@ -574,15 +614,30 @@ def find_closest_indices(target_mass, target_mixing):
     return mass_index, mixing_index
 
 def compute_analytic_survival(gammas):
+    survival_array = np.zeros((len(mass_hnl), len(mixing)))
+    for i, m in enumerate(mass_hnl):
+        for j, mix in enumerate(mixing):
+            angles = [0, 0, mix]
+            tau = HNL(m, angles, False).computeNLifetime()
+            P_values = []
+            for gamma in gammas[i,j]:
+                P = np.exp(-unit_converter(r_min) / (light_speed() * tau * gamma)) - np.exp(-unit_converter(r_max_l) / (light_speed() * tau * gamma))
+                P_values.append(P)
+            survival_array[i, j] = np.mean(P_values)
+    save_array(survival_array, name='survival_dv_array_analytic')
+    return survival_array
+
+def compute_analytic_survival_averaged(gamma_avg):
         survival_array = np.zeros((len(mass_hnl), len(mixing)))
         for i, m in enumerate(mass_hnl):
             for j, mix in enumerate(mixing):
                 angles = [0, 0, mix]
                 tau = HNL(m, angles, False).computeNLifetime()
-                gamma = gammas[i]
-                P = np.exp(-unit_converter(r_min) / (light_speed() * tau * gamma)) - np.exp(-unit_converter(r_max_l) / (light_speed() * tau * gamma))
+                gamma = gamma_avg[i]
+                P = np.exp(-(unit_converter(r_min)) / (light_speed() * tau * gamma)) - np.exp(-(unit_converter(r_max_l)) / (light_speed() * tau * gamma))
                 survival_fraction = P
                 survival_array[i, j] = survival_fraction
+        save_array(survival_array, name='survival_dv_array_analytic_avg')
         return survival_array
 
 def find_best_survival_indices(survival_dv):
@@ -783,29 +838,6 @@ def plotting(momenta, batch, production_arrays, arrays):
         save_plot('lorentz_factors')
         plt.show()
 
-        index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=5.4e-6)
-        average_survival_rate = np.mean(survival_dv_displaced, axis=2)
-        print('Survival rate for specified mixing: ', average_survival_rate[index_mass, index_mixing])
-        for index_mass in range(len(mass_hnl)):
-            average_lorentz_factor = np.mean(lorentz_factors[index_mass, index_mixing])
-            average_lifetime_rest = np.mean(lifetimes_rest[index_mass, index_mixing])
-
-            denominator = (average_lifetime_rest * average_lorentz_factor * light_speed())
-            exp_arg_max = -unit_converter(r_max_l) / denominator
-            exp_arg_min = -unit_converter(r_min) / denominator
-            analytic_survival_probability = np.exp(np.minimum(exp_arg_min, 700)) - np.exp(np.minimum(exp_arg_max, 700))
-            # Plotting
-            plt.plot(mass_hnl[index_mass], average_survival_rate[index_mass, index_mixing], 'bo', label='Simulated Survival Rate' if index_mass == 0 else "")
-            plt.plot(mass_hnl[index_mass], analytic_survival_probability, 'rx', label='Analytic Survival Probability' if index_mass == 0 else "")
-
-        plt.xlabel('HNL mass (GeV)')
-        plt.ylabel('Survival Rate')
-        plt.title(f'Survival Rate Comparison for Mixing $\\Theta_\\tau^2$ = {mixing[index_mixing]}')
-        plt.legend()
-        save_plot('DV_cut_validation')
-        plt.show()
-        save_array(average_lorentz_factor, name='average_lorentz_factor')
-
 
     index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
     index_mass_best, index_mixing_best = find_best_survival_indices(survival_dv_displaced)
@@ -814,16 +846,43 @@ def plotting(momenta, batch, production_arrays, arrays):
     
     # Survival plots: 
     if survival_plots:
-        plot_survival_parameter_space_regions(calculate_survival_fraction((survival_dv_displaced)), smooth=False, sigma=1, title='HNL survival (DV cut)', savename='survival_dv', plot_mass_mixing_lines = True)
+        # DV cut heatmap from data
+        survival_dv_fraction = calculate_survival_fraction((survival_dv_displaced))
+        plot_survival_parameter_space_regions_nointerpolation(survival_dv_fraction, title='HNL survival (DV cut)', savename='survival_dv', plot_mass_mixing_lines = True)
+
+        # DV cut heatmap from analysis (slow)
+        #survival_dv_analytic = compute_analytic_survival(lorentz_factors)
+        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic, title='HNL survival (analytic (2) DV cut)', savename='survival_dv_analytic_2', plot_mass_mixing_lines = True)
         
-        survival_dv_analytic = compute_analytic_survival(average_lorentz_factors)
-        plot_survival_parameter_space_regions(survival_dv_analytic, smooth=False, sigma=1, title='HNL survival (analytic DV cut)', savename='survival_dv_analytic', plot_mass_mixing_lines = True)
+        # Difference between data and analytic DV cut survival heatmap
+        #survival_dv_delta = survival_dv_fraction - survival_dv_analytic
+        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta, title='HNL DV cut survival difference (data method - analytic (2) method)', savename='survival_dv_delta_2', plot_mass_mixing_lines = True)
         
-        survival_pt = calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced))
-        survival_invmass = calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced))
-        survival_rapidity = calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced))
-        survival_deltaR = calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced))
+        # DV cut heatmap from analysis (slow)
+        #survival_dv_analytic_avg = compute_analytic_survival_averaged(average_lorentz_factors)
+        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic_avg, title='HNL survival (analytic (1) DV cut)', savename='survival_dv_analytic_1', plot_mass_mixing_lines = True)
         
+
+        # Difference between data and analytic DV cut survival heatmap
+        #survival_dv_delta_avg = survival_dv_fraction - survival_dv_analytic_avg
+        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_avg, title='HNL DV cut survival difference (data method - analytic (1) method)', savename='survival_dv_delta_1', plot_mass_mixing_lines = True)
+        
+
+        # Difference between analytic estimation and averaged analytic estimation
+        #survival_dv_delta_analysis = survival_dv_analytic - survival_dv_analytic_avg
+        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_analysis, title='HNL analytic DV cut survival difference (2) - (1)', savename='survival_dv_delta_2-1', plot_mass_mixing_lines = True)
+
+        survival_pt_= calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced))
+        survival_invmass_= calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced))
+        survival_rapidity_= calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced))
+        survival_deltaR_= calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced))
+        
+
+
+        # Total survival
+        survival_total = survival_dv_fraction * survival_pt_* survival_rapidity_* survival_invmass_* survival_deltaR_
+        plot_survival_parameter_space_regions_nointerpolation(survival_total, title='HNL survival (all cuts)', savename='survival_allcuts', plot_mass_mixing_lines = False)
+        np.save('/Users/edt/W2HNL/data/w2tau_@1$/Plots/total_survival.npy', survival_total)
         # Old heatmaps that look nice, but dont depend on mixing (so its unecessary having them as heatmaps)
         #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced)), smooth=False, sigma=1, title='HNL survival (pT cut)', savename='survival_pT')
         #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced)), smooth=False, sigma=1, title='HNL survival (invariant mass cut)', savename='survival_invmass')
@@ -834,13 +893,13 @@ def plotting(momenta, batch, production_arrays, arrays):
             #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced)), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
             
             # Simple survival fraction plots
-            plot_survival_fractions_simple([survival_pt, survival_invmass, survival_rapidity, survival_deltaR], ['$p_T$', '$M_{\\mu\\mu}$', '$\eta$', '$\Delta_R$'], 'Survival fractions', 'survival_fractions_simple')
+            plot_survival_fractions_simple([survival_pt_, survival_invmass_, survival_rapidity_, survival_deltaR_], ['$p_T$', '$M_{\\mu\\mu}$', '$\eta$', '$\Delta_R$'], 'Survival fractions', 'survival_fractions_simple')
         else:
             # Heatmap (necessary) because now invariant mass depends on mixing
-            plot_survival_fractions_simple([survival_pt, survival_invmass, survival_rapidity, survival_deltaR], ['$p_T$', '$\eta$', '$\Delta_R$'], 'Survival fractions', savename='survival_fractions_simple')
+            plot_survival_fractions_simple([survival_pt_, survival_invmass_, survival_rapidity_, survival_deltaR_], ['$p_T$', '$\eta$', '$\Delta_R$'], 'Survival fractions', savename='survival_fractions_simple')
             
             # Simple survival fraction plots
-            plot_survival_parameter_space_regions(calculate_survival_fraction(survival_deltaR_displaced), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
+            plot_survival_parameter_space_regions(calculate_survival_fraction(survival_deltaR_displaced), title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
 
     # Parameter space and production plots:
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')    
@@ -857,4 +916,28 @@ def plotting(momenta, batch, production_arrays, arrays):
             #plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
             #plot_production_heatmap(production_invmass, title='Production Rates (Invariant mass cut)', savename='production_invmass')
     
+    index_mass, index_mixing = find_closest_indices(target_mass=9, target_mixing=1e-7)
+    average_survival_rate = np.mean(survival_dv_displaced, axis=-1)
+    print('Survival rate for specified mixing: ', average_survival_rate[index_mass, index_mixing])
+    print('mixing: ', mixing[index_mixing])
+    print('mass: ', mass_hnl[index_mass])
+    for index_mass in range(len(mass_hnl)):
+        average_lorentz_factor = np.mean(lorentz_factors[index_mass, index_mixing])
+        average_lifetime_rest = np.mean(lifetimes_rest[index_mass, index_mixing])
+
+        denominator = (average_lifetime_rest * average_lorentz_factor * light_speed())
+        exp_arg_max = -unit_converter(r_max_l) / denominator
+        exp_arg_min = -unit_converter(r_min) / denominator
+        analytic_survival_probability = np.exp(np.minimum(exp_arg_min, 700)) - np.exp(np.minimum(exp_arg_max, 700))
+        # Plotting
+        plt.plot(mass_hnl[index_mass], average_survival_rate[index_mass, index_mixing], 'bo', label='Simulated Survival Rate' if index_mass == 0 else "")
+        plt.plot(mass_hnl[index_mass], analytic_survival_probability, 'rx', label='Analytic Survival Probability' if index_mass == 0 else "")
+
+    plt.xlabel('HNL mass (GeV)')
+    plt.ylabel('Survival Rate')
+    plt.title(f'Survival Rate Comparison for Mixing $\\Theta_\\tau^2$ = {mixing[index_mixing]}')
+    plt.legend()
+    save_plot('DV_cut_validation')
+    plt.show()
+
     return 0

@@ -4,7 +4,9 @@ from termcolor import colored
 
 def string_to_seed(s):
     """Convert a string to an integer seed."""
-    return int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16) % (2**32)
+    value = int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16) % (2**32)
+    # print(value) # Print actual seed instead of user string
+    return value
 
 def randomness(seed_string):
     seed = string_to_seed(seed_string)

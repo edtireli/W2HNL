@@ -735,7 +735,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     # Loading of arrays supplied from main:
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
     production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass = production_arrays
-    
+    save_array(lifetimes_rest, name='lifetime_rest_data')
     average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
 
     current_directory = os.getcwd()
@@ -882,7 +882,7 @@ def plotting(momenta, batch, production_arrays, arrays):
         # Total survival
         survival_total = survival_dv_fraction * survival_pt_* survival_rapidity_* survival_invmass_* survival_deltaR_
         plot_survival_parameter_space_regions_nointerpolation(survival_total, title='HNL survival (all cuts)', savename='survival_allcuts', plot_mass_mixing_lines = False)
-        np.save('/Users/edt/W2HNL/data/w2tau_@1$/Plots/total_survival.npy', survival_total)
+        
         # Old heatmaps that look nice, but dont depend on mixing (so its unecessary having them as heatmaps)
         #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced)), smooth=False, sigma=1, title='HNL survival (pT cut)', savename='survival_pT')
         #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced)), smooth=False, sigma=1, title='HNL survival (invariant mass cut)', savename='survival_invmass')

@@ -191,6 +191,42 @@ class ParticleBatch:
             raise ValueError("Invalid cut type specified.")
 
         return survival_mask_dv, rd_lab, td, g_lab
+    
+    def cut_dv_2(self, angle_sq, tau, cut_type, dv_min=0, dv_max_long=0, dv_max_trans=0):
+        if self.selected_mass_index is None or self.current_particle_type is None:
+            raise ValueError("Both HNL mass and particle type must be selected before applying DV cut.")
+        
+        p_lab = self.selected_momenta
+        HNLMass = self.mass_hnl[self.selected_mass_index]
+
+        # Step 1: Compute Lorentz factor for HNLs
+        g_lab = p_lab[:, 0] / HNLMass
+
+        # Multiply decay times by Lorentz factor to get decay times in lab frame
+        td_lab = g_lab * tau
+
+        decay_length_lab = td_lab * light_speed() 
+        
+        # Step 3: Calculate decay positions in 3D space
+        rd_lab = (p_lab[:, 1:4].T * (td_lab / p_lab[:, 0])).T
+        
+        # Calculate the norm of decay positions to get distances
+        rd_lab_norm = np.linalg.norm(rd_lab, axis=1)
+
+        # Create a boolean mask initially marking all particles as not surviving
+        survival_mask_dv = np.zeros(len(p_lab), dtype=bool)
+
+        # Step 4: Apply cuts based on geometry and update the survival_mask
+        if cut_type == 'sphere':
+            survival_mask_dv[(decay_length_lab >= dv_min) & (decay_length_lab <= dv_max_long)] = True
+        elif cut_type == 'cylinder':
+            rho = np.sqrt(rd_lab[:, 0]**2 + rd_lab[:, 1]**2)
+            z = np.abs(rd_lab[:, 2])
+            survival_mask_dv[(rd_lab_norm * light_speed() >= dv_min) & (rho <= dv_max_trans) & (z * light_speed() <= dv_max_long)] = True
+        else:
+            raise ValueError("Invalid cut type specified.")
+
+        return survival_mask_dv, rd_lab, tau, g_lab
 
     
     def cut_rap(self):
@@ -388,24 +424,46 @@ def survival_pT(particle_type, momentum):
     return survival_bool_all_masses_pT
 
 
-def survival_dv(momentum=1):
-    momentum_dv = copy.deepcopy(momentum)
-    # Initialize arrays to hold the survival status and decay vertices for each particle across all masses and mixings
-    survival_bool_dv = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
-    rd_labs = np.zeros((len(mass_hnl), len(mixing), batch_size, 3))  # rd_lab is a 3D vector
-    lifetimes_rest = np.zeros((len(mass_hnl), len(mixing), batch_size))
-    lorentz_factors = np.zeros((len(mass_hnl), len(mixing), batch_size))
-    for i, mass in enumerate(mass_hnl):
-        for j, mix in enumerate(mixing):
-            original_batch = ParticleBatch(momentum_dv)
-            # Make a deep copy of the batch for this particular cut application
-            batch_dv = copy.deepcopy(original_batch)
-            # Apply the DV cut for each mass and mixing scenario and get decay vertices
-            survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv(mix, cut_type_dv, unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
-            survival_bool_dv[i, j, :] = survival_mask_dv
-            rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
-            lifetimes_rest[i, j, :] = td
-            lorentz_factors[i, j, :] = g_lab
+def survival_dv(momentum=1, rng_type=1):
+    if rng_type == 1: 
+        momentum_dv = copy.deepcopy(momentum)
+        # Initialize arrays to hold the survival status and decay vertices for each particle across all masses and mixings
+        survival_bool_dv = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
+        rd_labs = np.zeros((len(mass_hnl), len(mixing), batch_size, 3))  # rd_lab is a 3D vector
+        lifetimes_rest = np.zeros((len(mass_hnl), len(mixing), batch_size))
+        lorentz_factors = np.zeros((len(mass_hnl), len(mixing), batch_size))
+        for i, mass in enumerate(mass_hnl):
+            for j, mix in enumerate(mixing):
+                original_batch = ParticleBatch(momentum_dv)
+                # Make a deep copy of the batch for this particular cut application
+                batch_dv = copy.deepcopy(original_batch)
+                # Apply the DV cut for each mass and mixing scenario and get decay vertices
+                survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv(mix, cut_type_dv, unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+                survival_bool_dv[i, j, :] = survival_mask_dv
+                rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
+                lifetimes_rest[i, j, :] = td
+                lorentz_factors[i, j, :] = g_lab
+    elif rng_type==2:
+        momentum_dv = copy.deepcopy(momentum)
+        # Initialize arrays to hold the survival status and decay vertices for each particle across all masses and mixings
+        survival_bool_dv = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
+        rd_labs = np.zeros((len(mass_hnl), len(mixing), batch_size, 3))  # rd_lab is a 3D vector
+        lifetimes_rest = np.zeros((len(mass_hnl), len(mixing), batch_size))
+        lorentz_factors = np.zeros((len(mass_hnl), len(mixing), batch_size))
+        for i, mass in enumerate(mass_hnl):
+            lifetime = HNL(mass, [0,0,1], False).computeNLifetime()
+            lifetime_spread = np.random.exponential(lifetime, size=(batch_size))
+            for j, mix in enumerate(mixing):
+                lifetime_spread_mixing = lifetime_spread / mix
+                original_batch = ParticleBatch(momentum_dv)
+                # Make a deep copy of the batch for this particular cut application
+                batch_dv = copy.deepcopy(original_batch)
+                # Apply the DV cut for each mass and mixing scenario and get decay vertices
+                survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv_2(mix, lifetime_spread_mixing, cut_type_dv, unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+                survival_bool_dv[i, j, :] = survival_mask_dv
+                rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
+                lifetimes_rest[i, j, :] = td
+                lorentz_factors[i, j, :] = g_lab                
     return survival_bool_dv, rd_labs,lifetimes_rest, lorentz_factors
 
 
@@ -482,6 +540,14 @@ def survival_deltaR(cut_condition, momentum):
 
     return survival_bool_all_masses_deltaR
 
+def save_array(array, name=''):
+    current_directory = os.getcwd()                                         # Current path
+    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    array_path         = os.path.join(data_path, 'Plots', 'Plot data', f'{name}.npy')
+    os.makedirs(os.path.join(data_path, 'Plots'), exist_ok=True) # Making directory if not already exists
+
+    np.save(array_path, array)
+
 
 def data_processing(momenta):
     print('--------------------------- Data processing --------------------------')
@@ -505,12 +571,12 @@ def data_processing(momenta):
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
     
     print('Computing cut: Displaced vertex')
-    survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta)
+    survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta, rng_type=1)
     print(np.mean(lifetimes_rest_))
     arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
               np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
               np.array(survival_deltaR_displaced), 
               np.array(r_lab), np.array(lifetimes_rest_), np.array(lorentz_factors)
      ) # defining a tuple for easier management of survival arrays on main
-    
+    save_array(survival_dv_displaced)
     return batch, arrays

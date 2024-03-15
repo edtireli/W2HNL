@@ -735,6 +735,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     # Loading of arrays supplied from main:
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
     production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass = production_arrays
+    save_array(production_allcuts, 'production_allcuts')
     save_array(lifetimes_rest, name='lifetime_rest_data')
     average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
 
@@ -918,9 +919,9 @@ def plotting(momenta, batch, production_arrays, arrays):
     
     index_mass, index_mixing = find_closest_indices(target_mass=9, target_mixing=1e-7)
     average_survival_rate = np.mean(survival_dv_displaced, axis=-1)
-    print('Survival rate for specified mixing: ', average_survival_rate[index_mass, index_mixing])
-    print('mixing: ', mixing[index_mixing])
-    print('mass: ', mass_hnl[index_mass])
+    #print('Survival rate for specified mixing: ', average_survival_rate[index_mass, index_mixing])
+    #print('mixing: ', mixing[index_mixing])
+    #print('mass: ', mass_hnl[index_mass])
     for index_mass in range(len(mass_hnl)):
         average_lorentz_factor = np.mean(lorentz_factors[index_mass, index_mixing])
         average_lifetime_rest = np.mean(lifetimes_rest[index_mass, index_mixing])

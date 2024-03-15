@@ -163,9 +163,9 @@ class ParticleBatch:
         g_lab = p_lab[:, 0] / HNLMass
 
         # Step 2: Find tau and generate decay times in the lab frame
-        tau = self.find_tau(HNLMass, angle_sq, flavour_hnl)
-        td = np.random.exponential(tau, size=len(p_lab))
-
+        tau_ = self.find_tau(HNLMass, [0,0,1], flavour_hnl)
+        tau_ = tau_ / angle_sq
+        td = np.random.exponential(tau_, size=len(p_lab))
         # Multiply decay times by Lorentz factor to get decay times in lab frame
         td_lab = g_lab * td
 
@@ -505,12 +505,12 @@ def data_processing(momenta):
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
     
     print('Computing cut: Displaced vertex')
-    survival_dv_displaced, r_lab, lifetimes_rest, lorentz_factors = survival_dv(momentum=momenta)
-    
+    survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta)
+    print(np.mean(lifetimes_rest_))
     arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
               np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
               np.array(survival_deltaR_displaced), 
-              np.array(r_lab), np.array(lifetimes_rest), np.array(lorentz_factors)
+              np.array(r_lab), np.array(lifetimes_rest_), np.array(lorentz_factors)
      ) # defining a tuple for easier management of survival arrays on main
     
     return batch, arrays

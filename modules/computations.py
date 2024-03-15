@@ -79,7 +79,7 @@ def computations(momenta, arrays):
     efficiency = np.mean(combined_survival, axis=-1)  # Averaging over the third dimension (particles)
 
     # Calculate initial production rates before any cuts
-    theoretical_sigma = 2.05e7  # fb corresponding to 20.5nb from https://arxiv.org/pdf/1603.09222.pdf
+    theoretical_sigma = 2.064e7  # fb corresponding to 20.5nb from https://arxiv.org/pdf/1603.09222.pdf
     cross_sections = theoretical_sigma * np.array([HNL(m, [0,0,1], False).findBranchingRatio('N -> mu- mu+ nu_tau') for m in mass_hnl])
     production_nocuts = luminosity * cross_sections[:, np.newaxis] * np.array(mixing)[np.newaxis, :]  # Shape now (mass, mixing)
 

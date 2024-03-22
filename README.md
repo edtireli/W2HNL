@@ -1,6 +1,6 @@
 # W2HNL
 ## Overview
-This Python program is developed for the ATLAS experiment at the Large Hadron Collider (LHC) to facilitate the search for displaced vertices, specifically focusing on heavy neutral leptons (HNLs) decaying into di-lepton pairs at macroscopic distances from the interaction point.
+This Python program is developed for signal estimation of feebly interacting massive particles (FIMPs) for the ATLAS experiment at the Large Hadron Collider (LHC) with special focus on heavy neutral leptons decaying macroscopically to di-leptons.
 
 ## Features
 

@@ -35,10 +35,11 @@ plot_heatmaps = True
 
 # Plot survival heatmaps
 survival_plots = True
-levels_heatmap = 10
+survival_plots_analysis = False # Extra analysis vs data plots (time consuming)
+levels_heatmap = 10 #The number of levels on the contour plots
 
 # Plot production heatmaps
-production_plots = False
+production_plots = True
 
 # Functions:
 
@@ -850,28 +851,29 @@ def plotting(momenta, batch, production_arrays, arrays):
         # DV cut heatmap from data
         survival_dv_fraction = calculate_survival_fraction((survival_dv_displaced))
         plot_survival_parameter_space_regions_nointerpolation(survival_dv_fraction, title='HNL survival (DV cut)', savename='survival_dv', plot_mass_mixing_lines = True)
+        
+        if survival_plots_analysis:
+            # DV cut heatmap from analysis (slow)
+            survival_dv_analytic = compute_analytic_survival(lorentz_factors)
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic, title='HNL survival (analytic (2) DV cut)', savename='survival_dv_analytic_2', plot_mass_mixing_lines = True)
+            
+            # Difference between data and analytic DV cut survival heatmap
+            survival_dv_delta = survival_dv_fraction - survival_dv_analytic
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta, title='HNL DV cut survival difference (data method - analytic (2) method)', savename='survival_dv_delta_2', plot_mass_mixing_lines = True)
+            
+            # DV cut heatmap from analysis (slow)
+            survival_dv_analytic_avg = compute_analytic_survival_averaged(average_lorentz_factors)
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic_avg, title='HNL survival (analytic (1) DV cut)', savename='survival_dv_analytic_1', plot_mass_mixing_lines = True)
+            
 
-        # DV cut heatmap from analysis (slow)
-        #survival_dv_analytic = compute_analytic_survival(lorentz_factors)
-        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic, title='HNL survival (analytic (2) DV cut)', savename='survival_dv_analytic_2', plot_mass_mixing_lines = True)
-        
-        # Difference between data and analytic DV cut survival heatmap
-        #survival_dv_delta = survival_dv_fraction - survival_dv_analytic
-        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta, title='HNL DV cut survival difference (data method - analytic (2) method)', savename='survival_dv_delta_2', plot_mass_mixing_lines = True)
-        
-        # DV cut heatmap from analysis (slow)
-        #survival_dv_analytic_avg = compute_analytic_survival_averaged(average_lorentz_factors)
-        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic_avg, title='HNL survival (analytic (1) DV cut)', savename='survival_dv_analytic_1', plot_mass_mixing_lines = True)
-        
+            # Difference between data and analytic DV cut survival heatmap
+            survival_dv_delta_avg = survival_dv_fraction - survival_dv_analytic_avg
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_avg, title='HNL DV cut survival difference (data method - analytic (1) method)', savename='survival_dv_delta_1', plot_mass_mixing_lines = True)
+            
 
-        # Difference between data and analytic DV cut survival heatmap
-        #survival_dv_delta_avg = survival_dv_fraction - survival_dv_analytic_avg
-        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_avg, title='HNL DV cut survival difference (data method - analytic (1) method)', savename='survival_dv_delta_1', plot_mass_mixing_lines = True)
-        
-
-        # Difference between analytic estimation and averaged analytic estimation
-        #survival_dv_delta_analysis = survival_dv_analytic - survival_dv_analytic_avg
-        #plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_analysis, title='HNL analytic DV cut survival difference (2) - (1)', savename='survival_dv_delta_2-1', plot_mass_mixing_lines = True)
+            # Difference between analytic estimation and averaged analytic estimation
+            survival_dv_delta_analysis = survival_dv_analytic - survival_dv_analytic_avg
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_analysis, title='HNL analytic DV cut survival difference (2) - (1)', savename='survival_dv_delta_2-1', plot_mass_mixing_lines = True)
 
         survival_pt_= calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced))
         survival_invmass_= calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced))
@@ -879,6 +881,9 @@ def plotting(momenta, batch, production_arrays, arrays):
         survival_deltaR_= calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced))
         
 
+        # Invariant mass survival
+        plot_survival_parameter_space_regions_nointerpolation(survival_invmass_, title='HNL survival (invariant mass)', savename='survival_invmass', plot_mass_mixing_lines = False)
+        save_array(survival_invmass_, 'survival_invmass')
 
         # Total survival
         survival_total = survival_dv_fraction * survival_pt_* survival_rapidity_* survival_invmass_* survival_deltaR_
@@ -907,6 +912,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
     if production_plots:
         plot_parameter_space_region(production_invmass, title='HNL Production (invariant mass cut)', savename = 'hnl_production_invmass')
+        save_array(production_invmass, 'production_invmass')
         plot_parameter_space_regions(production_nocuts, production_dv, labels=['no cuts', 'DV'], colors=['red', 'black'], smooth=False, sigma=1, savename = 'hnl_production_parameter_space_dv') 
 
         if plot_heatmaps:

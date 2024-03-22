@@ -359,8 +359,8 @@ class ParticleBatch:
         """
         Calculate the difference in azimuthal angle (Delta Phi) between two particles.
         """
-        phi1 = np.arctan2(p1[:, 2], p1[:, 1])
-        phi2 = np.arctan2(p2[:, 2], p2[:, 1])
+        phi1 = np.arctan2(p1[:, 1], p1[:, 2])
+        phi2 = np.arctan2(p2[:, 1], p2[:, 2])
         delta_phi = phi1 - phi2
         # Correct for the periodic boundary condition
         delta_phi = np.where(delta_phi > np.pi, delta_phi - 2*np.pi, delta_phi)

@@ -2,7 +2,7 @@
 import numpy as np 
 
 pT_minimum = '5 GeV' # Minimum transverse momentum
-invmass_minimum = '4.5 GeV'
+invmass_minimum = '5 GeV'
 invmass_cut_type = 'trivial' # nontrivial to consider piecewise function, trivial to consider a flat value that uses the above invmass_minimum regardless of r_dv
 invmass_experimental = False # Changes the way the invariant mass is calculated. True uses HEP method with eta and phi, False uses theory version with full 4-mom. from data. 
 
@@ -22,4 +22,4 @@ production_minimum_secondary = 10 # A secondary production minimum
 
 mixing = np.logspace(0,-8,200)
 
-rng_seed = 'honeydew' #RNG seed
+rng_seed = 'honeydew' # RNG seed

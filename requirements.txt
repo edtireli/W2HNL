@@ -1,8 +1,12 @@
+tqdm
 numpy
 scipy
+plotly
+future
+seaborn
 pyhepmc
-pickle
 termcolor
-hashlib
+ipywidgets
 matplotlib
 scikit-hep
+particletools

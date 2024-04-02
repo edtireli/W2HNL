@@ -736,7 +736,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     # Loading of arrays supplied from main:
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
     production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass = production_arrays
-    save_array(production_allcuts, 'production_allcuts')
+    save_array(production_allcuts, f'production_allcuts_{luminosity}')
     save_array(lifetimes_rest, name='lifetime_rest_data')
     average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
 
@@ -875,6 +875,32 @@ def plotting(momenta, batch, production_arrays, arrays):
             survival_dv_delta_analysis = survival_dv_analytic - survival_dv_analytic_avg
             plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_analysis, title='HNL analytic DV cut survival difference (2) - (1)', savename='survival_dv_delta_2-1', plot_mass_mixing_lines = True)
 
+            a = False
+            if a: 
+                index_mass, index_mixing = find_closest_indices(target_mass=9, target_mixing=1e-7)
+                average_survival_rate = np.mean(survival_dv_displaced, axis=-1)
+                #print('Survival rate for specified mixing: ', average_survival_rate[index_mass, index_mixing])
+                #print('mixing: ', mixing[index_mixing])
+                #print('mass: ', mass_hnl[index_mass])
+                for index_mass in range(len(mass_hnl)):
+                    average_lorentz_factor = np.mean(lorentz_factors[index_mass, index_mixing])
+                    average_lifetime_rest = np.mean(lifetimes_rest[index_mass, index_mixing])
+
+                    denominator = (average_lifetime_rest * average_lorentz_factor * light_speed())
+                    exp_arg_max = -unit_converter(r_max_l) / denominator
+                    exp_arg_min = -unit_converter(r_min) / denominator
+                    analytic_survival_probability = np.exp(np.minimum(exp_arg_min, 700)) - np.exp(np.minimum(exp_arg_max, 700))
+                    # Plotting
+                    plt.plot(mass_hnl[index_mass], average_survival_rate[index_mass, index_mixing], 'bo', label='Simulated Survival Rate' if index_mass == 0 else "")
+                    plt.plot(mass_hnl[index_mass], analytic_survival_probability, 'rx', label='Analytic Survival Probability' if index_mass == 0 else "")
+
+                plt.xlabel('HNL mass (GeV)')
+                plt.ylabel('Survival Rate')
+                plt.title(f'Survival Rate Comparison for Mixing $\\Theta_\\tau^2$ = {mixing[index_mixing]}')
+                plt.legend()
+                save_plot('DV_cut_validation')
+                plt.show()
+                
         survival_pt_= calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced))
         survival_invmass_= calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced))
         survival_rapidity_= calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced))
@@ -922,29 +948,5 @@ def plotting(momenta, batch, production_arrays, arrays):
             # Old and unecessary
             #plot_production_heatmap(production_nocuts, title='Production Rates (no cuts)', savename='production_nocuts')
             #plot_production_heatmap(production_invmass, title='Production Rates (Invariant mass cut)', savename='production_invmass')
-    
-    index_mass, index_mixing = find_closest_indices(target_mass=9, target_mixing=1e-7)
-    average_survival_rate = np.mean(survival_dv_displaced, axis=-1)
-    #print('Survival rate for specified mixing: ', average_survival_rate[index_mass, index_mixing])
-    #print('mixing: ', mixing[index_mixing])
-    #print('mass: ', mass_hnl[index_mass])
-    for index_mass in range(len(mass_hnl)):
-        average_lorentz_factor = np.mean(lorentz_factors[index_mass, index_mixing])
-        average_lifetime_rest = np.mean(lifetimes_rest[index_mass, index_mixing])
-
-        denominator = (average_lifetime_rest * average_lorentz_factor * light_speed())
-        exp_arg_max = -unit_converter(r_max_l) / denominator
-        exp_arg_min = -unit_converter(r_min) / denominator
-        analytic_survival_probability = np.exp(np.minimum(exp_arg_min, 700)) - np.exp(np.minimum(exp_arg_max, 700))
-        # Plotting
-        plt.plot(mass_hnl[index_mass], average_survival_rate[index_mass, index_mixing], 'bo', label='Simulated Survival Rate' if index_mass == 0 else "")
-        plt.plot(mass_hnl[index_mass], analytic_survival_probability, 'rx', label='Analytic Survival Probability' if index_mass == 0 else "")
-
-    plt.xlabel('HNL mass (GeV)')
-    plt.ylabel('Survival Rate')
-    plt.title(f'Survival Rate Comparison for Mixing $\\Theta_\\tau^2$ = {mixing[index_mixing]}')
-    plt.legend()
-    save_plot('DV_cut_validation')
-    plt.show()
 
     return 0

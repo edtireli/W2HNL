@@ -5,12 +5,15 @@ import numpy as np
 import os
 import os.path
 from os import path
-
+from parameters.data_parameters import *
 import re
 from dataclasses import dataclass, field
 from xml.etree import ElementTree
 
 from skhep.math import LorentzVector
+import gzip
+import shutil
+from tqdm import tqdm
 
 @dataclass
 class Particle:
@@ -27,7 +30,7 @@ class Particle:
     parent2: int
 
     def p4(self):
-        return LorentzVector(self.px, self.py, self.pz, self.energy)
+        return LorentzVector(self.energy, self.px, self.py, self.pz)
 
 
 @dataclass
@@ -137,142 +140,107 @@ class LHEReader():
 
         return self.unpack_from_iterator()
     
-def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):     
-    foo = os.listdir(folder + '/Events')
-    if '.DS_Store' in foo:
-        foo.remove('.DS_Store')
-    if len(foo)-1<10:
-        digits=1
-        # less=0
-        filename = 'scan_run_0[1-' + f'{len(foo)-1:{digits}}'.format(digits=digits) + '].txt'
-        # out_of=f'{{}:01}'.format(n_mass_scans)
-    else:
-        digits=2
-        # less=''
-        filename = 'scan_run_[01-' + f'{len(foo)-1:{digits}}'.format(digits=digits) + '].txt'
-        # out_of=f'{n_ mass_scans:02}'.format(n_mass_scans)
-    with open(folder + '/Events/' + filename, 'r') as f:
-        lines=f.readlines()
-        data=[elm.split() for elm in lines[1:]]
-    n_mass_scans = len(data)
-    HNL_mass = [float(elm[1]) for elm in data] 
+import numpy as np
+import os
+from glob import glob
+
+def unzip_lhe_file(lhe_gz_path):
+    """
+    Unzips an LHE file given its .gz path.
+    """
+    with gzip.open(lhe_gz_path, 'rb') as f_in:
+        with open(lhe_gz_path[:-3], 'wb') as f_out:  # Removes the .gz extension for the output file
+            shutil.copyfileobj(f_in, f_out)
+    os.remove(lhe_gz_path)  # Optionally remove the gz file after extraction
+
+# Define a helper function to process and extract particle data from each event
+def process_event(event, prompt_lepton_flavour):
+    # Initialize the structure for holding extracted data
+    extracted_data = {
+        'HNL': [],
+        'prompt_mu': [],
+        'dimu_minus': [],
+        'dimu_plus': [],
+        'W_boson': [],
+        'neutrino': []  # Assuming interest in neutrinos as well
+    }
     
-    if path.exists( folder + '/HNL_4mom/HNL_4mom_' + f'{n_mass_scans:02}' + '.txt')==True:
-        p_HNL=[]
-        p_mu_prompt=[]
-        p_mu_dimu_minus=[]
-        p_mu_dimu_plus=[]
-        for i in range(n_mass_scans):
-            print('----> reading MG scan .txt file' + str(i+1), end='\r')
-            p_HNL.append(np.loadtxt( folder + '/HNL_4mom/HNL_4mom_' + f'{i+1:02}' + '.txt',max_rows=prompt_length))
-            p_mu_prompt.append(np.loadtxt( folder + '/promt_mu_4mom/prompt_mu_4mom_' + f'{i+1:02}' + '.txt',max_rows=prompt_length))
-            p_mu_dimu_minus.append(np.loadtxt( folder + '/dimu_minus_4mom/dimu_minus_4mom_' + f'{i+1:02}' + '.txt',max_rows=prompt_length))
-            p_mu_dimu_plus.append(np.loadtxt( folder + '/dimu_plus_4mom/dimu_plus_4mom_' + f'{i+1:02}' + '.txt',max_rows=prompt_length))
-    else:
-        p_HNL=[]
-        p_W=[]
-        p_mu_prompt=[]
-        p_mu_dimu_minus=[]
-        p_mu_dimu_plus=[]
+    # Iterate over each particle in the event
+    for particle in event.particles:
+        # Extract HNL particles
+        if abs(particle.pdgid) == pid_HNL:
+            extracted_data['HNL'].append([particle.energy, particle.px, particle.py, particle.pz])
         
-        def flatten(l):
-            while len(l) == 1 and type(l[0]) == list:
-                l = l.pop()
-            return l
+        # Extract W bosons
+        if abs(particle.pdgid) == abs(pid_boson):
+            extracted_data['W_boson'].append([particle.energy, particle.px, particle.py, particle.pz])
+
+        # Extract prompt leptons
+        if abs(particle.pdgid) == pid_prompt_lepton:
+            extracted_data['prompt_mu'].append([particle.energy, particle.px, particle.py, particle.pz])
+
+        # Extract displaced leptons (assuming symmetry in PID for + and -)
+        if abs(particle.pdgid) == pid_displaced_lepton:
+            if particle.pdgid > 0:
+                extracted_data['dimu_plus'].append([particle.energy, particle.px, particle.py, particle.pz])
+            else:
+                extracted_data['dimu_minus'].append([particle.energy, particle.px, particle.py, particle.pz])
+
+        # Extract neutrinos
+        if abs(particle.pdgid) == pid_neutrino:
+            extracted_data['neutrino'].append([particle.energy, particle.px, particle.py, particle.pz])
+
+    return extracted_data
     
-        if prompt_lepton_flavour==2:
-            for i in range(n_mass_scans):
-                print('reading MG scan LHE file' + str(i+1), end='\r')
-                p_HNL.append([])
-                p_mu_prompt.append([])
-                p_mu_dimu_minus.append([])
-                p_mu_dimu_plus.append([])
-                if path.exists( folder + '/Events/run_' + f'{i+1:02}' + '/unweighted_events.lhe.gz')==True:
-                    os.system('gzip -d ' +folder+ '/Events/run_' + f'{i+1:02}' + '/unweighted_events.lhe.gz')
-                reader = LHEReader( folder + '/Events/run_' + f'{i+1:02}' + '/unweighted_events.lhe')
-                for iev, event in enumerate(reader):
-                    if iev <= prompt_length:
-                        for j in event.particles:
-                            if (j.pdgid==9990014 or j.pdgid==9900014 or j.pdgid==9900012) and j.parent1==1 and j.parent2==2:
-                                p_HNL[i].append(np.array([j.energy,j.px, j.py,j.pz]))
-                                for k in event.particles:
-                                    if k.parent1==1 and k.parent2==2 and abs(k.pdgid)==13:
-                                        p_mu_prompt[i].append(np.array([k.energy,k.px, k.py,k.pz]))
-                                    if (k.parent1==3 and k.parent2==3) and k.pdgid==13:
-                                        p_mu_dimu_minus[i].append(np.array([k.energy,k.px, k.py,k.pz]))
-                                    if (k.parent1==3 and k.parent2==3) and k.pdgid==13:
-                                        p_mu_dimu_minus[i].append(np.array([k.energy,k.px, k.py,k.pz]))    
-                                    if (k.parent1==3 and k.parent2==3) and k.pdgid==-13:
-                                        p_mu_dimu_plus[i].append(np.array([k.energy,k.px, k.py,k.pz]))
-                                    elif (k.parent1==4 and k.parent2==4) and k.pdgid==-13:
-                                        p_mu_dimu_plus[i].append(np.array([k.energy,k.px, k.py,k.pz]))    
-                            elif (j.pdgid==9990014 or j.pdgid==9900014 or j.pdgid==9900012) and j.parent1==3 and j.parent2==3:
-                                p_HNL[i].append(np.array([j.energy,j.px, j.py,j.pz]))
-                                for k in event.particles:
-                                    if k.parent1==3 and k.parent2==3 and abs(k.pdgid)==13:
-                                        p_mu_prompt[i].append(np.array([k.energy,k.px, k.py,k.pz]))
-                                    if k.pdgid==13 and k.parent1==4 and k.parent2==4:
-                                        p_mu_dimu_minus[i].append(np.array([k.energy,k.px, k.py,k.pz]))   
-                                    if k.parent1==4 and k.parent2==4 and k.pdgid==-13:
-                                        p_mu_dimu_plus[i].append(np.array([k.energy,k.px, k.py,k.pz])) 
-                                    elif abs(k.pdgid)==24 and k.parent1==4 and k.parent2==4:
-                                        for l in event.particles:
-                                            if l.parent1==5 and l.parent2==5 and l.pdgid==-13:
-                                                p_mu_dimu_plus[i].append(np.array([l.energy,l.px, l.py,l.pz]))
-                                    elif abs(k.pdgid)==23 and k.parent1==4 and k.parent2==4:
-                                        for l in event.particles:
-                                            if l.parent1==5 and l.parent2==5 and l.pdgid==-13:
-                                                p_mu_dimu_plus[i].append(np.array([l.energy,l.px, l.py,l.pz])) 
-                if i==0:
-                     os.mkdir( folder + '/HNL_4mom')
-                     os.mkdir( folder + '/promt_mu_4mom')
-                     os.mkdir( folder + '/dimu_minus_4mom')
-                     os.mkdir( folder + '/dimu_plus_4mom')
-                np.savetxt( folder + '/HNL_4mom/HNL_4mom_' + f'{i+1:02}' + '.txt', p_HNL[i])
-                np.savetxt( folder + '/promt_mu_4mom/prompt_mu_4mom_' + f'{i+1:02}' + '.txt', p_mu_prompt[i])
-                np.savetxt( folder + '/dimu_minus_4mom/dimu_minus_4mom_' + f'{i+1:02}' + '.txt', p_mu_dimu_minus[i])
-                np.savetxt( folder + '/dimu_plus_4mom/dimu_plus_4mom_' + f'{i+1:02}' + '.txt', p_mu_dimu_plus[i])                                                
-        else:                                    
-            for i in range(n_mass_scans):
-                print('reading MG scan LHE file' + str(i+1), end='\r')
-                p_HNL.append([])
-                p_W.append([])
-                p_mu_prompt.append([])
-                p_mu_dimu_minus.append([])
-                p_mu_dimu_plus.append([])
-                if path.exists( folder + '/Events/run_' + f'{i+1:02}' + '/unweighted_events.lhe.gz')==True:
-                    os.system('gzip -d ' +folder+ '/Events/run_' + f'{i+1:02}' + '/unweighted_events.lhe.gz')
-                reader = LHEReader( folder + '/Events/run_' + f'{i+1:02}' + '/unweighted_events.lhe')
-                for iev, event in enumerate(reader):
-                    if iev <= prompt_length:
-                        pHNL_ = filter(lambda x: abs(x.pdgid)== 9990012 or abs(x.pdgid)== 9990014 or abs(x.pdgid)== 9990016 or abs(x.pdgid)==9900012 or abs(x.pdgid)==9900014 or abs(x.pdgid)==9900016, event.particles)
-                        pmu1_dimu_minus = filter(lambda x: x.pdgid== pdg_di, event.particles)
-                        pmu1_dimu_plus = filter(lambda x: x.pdgid== -pdg_di, event.particles)
-                        pmu1_prompt = filter(lambda x: abs(x.pdgid)== pdg_prompt, event.particles)
-                        W_filter = filter(lambda x: abs(x.pdgid)== 24, event.particles)
-                        for p4hnl in map(lambda x: x.p4(), pHNL_):
-                            p_HNL[i].append(np.array([p4hnl[3],p4hnl[0],p4hnl[1],p4hnl[2]]))
-                        for p4muprompt in map(lambda x: x.p4(), pmu1_prompt):
-                            p_mu_prompt[i].append(np.array([p4muprompt[3],p4muprompt[0],p4muprompt[1],p4muprompt[2]]))
-                        for p4dimu in map(lambda x: x.p4(), pmu1_dimu_minus):
-                            p_mu_dimu_minus[i].append(np.array([p4dimu[3],p4dimu[0],p4dimu[1],p4dimu[2]]))  
-                        for p4dimu in map(lambda x: x.p4(), pmu1_dimu_plus):
-                            p_mu_dimu_plus[i].append(np.array([p4dimu[3],p4dimu[0],p4dimu[1],p4dimu[2]]))
-   
+def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):
+    event_dirs = sorted(glob(os.path.join(folder, 'Events', 'run_*')), key=lambda x: int(x.split('_')[-1]))
+    # Use the length of event_dirs directly since it represents the actual number of runs found
+    n_scans = len(event_dirs)
+
+    # Initialize containers for the extracted data for each particle type
+    data_structure = {
+        'HNL': [],
+        'prompt_mu': [],
+        'dimu_minus': [],
+        'dimu_plus': [],
+        'W_boson': [],
+        'neutrino': []
+    }
+
+    # Estimate the total number of events to be processed across all runs
+    # Assuming you might not process all events in a run, use min(len(event_dirs), len(mass_hnl)) * prompt_length
+    total_events_to_process = min(len(event_dirs), len(mass_hnl)) * prompt_length
+    progress_bar = tqdm(total=total_events_to_process, desc='Processing LHE Files')
+
+    for dir_path in event_dirs:
+        lhe_gz_path = os.path.join(dir_path, 'unweighted_events.lhe.gz')
+        if path.exists(lhe_gz_path):
+            unzip_lhe_file(lhe_gz_path)  # Unzip the LHE file before reading
         
-                if i==0:
-                    os.mkdir( folder + '/HNL_4mom')
-                    os.mkdir( folder + '/promt_mu_4mom')
-                    os.mkdir( folder + '/dimu_minus_4mom')
-                    os.mkdir( folder + '/dimu_plus_4mom')
-                np.savetxt( folder + '/HNL_4mom/HNL_4mom_' + f'{i+1:02}' + '.txt', p_HNL[i])
-                np.savetxt( folder + '/promt_mu_4mom/prompt_mu_4mom_' + f'{i+1:02}' + '.txt', p_mu_prompt[i])
-                np.savetxt( folder + '/dimu_minus_4mom/dimu_minus_4mom_' + f'{i+1:02}' + '.txt', p_mu_dimu_minus[i])
-                np.savetxt( folder + '/dimu_plus_4mom/dimu_plus_4mom_' + f'{i+1:02}' + '.txt', p_mu_dimu_plus[i])     
-                         
-    p_HNL = np.array(p_HNL) 
-    p_mu_dimu_minus = np.array(p_mu_dimu_minus) 
-    p_mu_dimu_plus = np.array(p_mu_dimu_plus) 
-    p_mu_prompt = np.array(p_mu_prompt) 
-    #p_W = np.array(p_W)
-    return n_mass_scans,HNL_mass,  p_HNL, p_mu_prompt, p_mu_dimu_minus, p_mu_dimu_plus  
+        lhe_file_path = os.path.join(dir_path, 'unweighted_events.lhe')
+        reader = LHEReader(lhe_file_path)
+        scan_data = {key: [] for key in data_structure.keys()}
+
+        for event_index, event in enumerate(reader):
+            if event_index >= prompt_length:
+                break
+            event_data = process_event(event, prompt_lepton_flavour)
+            for key in scan_data:
+                scan_data[key].append(event_data[key])
+
+            progress_bar.update(1)  # Update progress bar per event processed
+
+        # Convert lists to numpy arrays for each particle type after processing a run
+        for key in data_structure:
+            data_structure[key].append(np.array(scan_data[key]))
+
+    progress_bar.close()  # Ensure the progress bar is closed after processing
+
+    # Convert the list of numpy arrays to a single numpy array for each particle type
+    for key in data_structure:
+        flat_data = [np.concatenate(scan, axis=0) for scan in data_structure[key] if len(scan) > 0]
+        data_structure[key] = np.stack(flat_data) if flat_data else np.empty((0, prompt_length, 4))
+
+    return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_mu'],
+            data_structure['dimu_minus'], data_structure['dimu_plus'], data_structure['neutrino'])
+

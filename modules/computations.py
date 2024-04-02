@@ -70,10 +70,14 @@ def save_array(array, name=''):
 
     np.save(array_path, array)
 
+def print_dashes(text, char='-'):
+    width = shutil.get_terminal_size().columns
+    side = (width - len(text) - 2) // 2
+    print(f"{char * side} {text} {char * (width - side - len(text) - 2)}")
 
 
 def computations(momenta, arrays):
-    print('----------------------- Computing HNL production --------------------')
+    print_dashes('Computing HNL production')
     survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
 
     print('     Invariant mass survival: ', np.mean(survival_invmass_displaced)) # Validated for trivial case

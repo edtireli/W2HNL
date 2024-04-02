@@ -6,6 +6,7 @@ from parameters.experimental_parameters import *
 from utils.hnl import *
 import copy
 from tqdm import tqdm
+import shutil
 
 def nat_to_s():
     return 6.5823*10**-25
@@ -538,10 +539,15 @@ def save_array(array, name=''):
     os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)
     np.save(array_path, array)
 
+def print_dashes(text, char='-'):
+    width = shutil.get_terminal_size().columns
+    side = (width - len(text) - 2) // 2
+    print(f"{char * side} {text} {char * (width - side - len(text) - 2)}")
+
 
 def data_processing(momenta):
-    print('--------------------------- Data processing --------------------------')
-
+    print_dashes("Data Processing")
+    
     batch = ParticleBatch(momenta)
     
     survival_pT_displaced = survival_pT(momentum=momenta)

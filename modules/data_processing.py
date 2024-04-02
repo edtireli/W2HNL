@@ -296,7 +296,8 @@ class ParticleBatch:
 
             # Calculate invariant mass for each pair
             p_sum = p_minus + p_plus  # Element-wise sum of 4-momenta vectors
-            invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, minkowski_metric), p_sum))
+            with np.errstate(invalid='ignore'):
+                invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, minkowski_metric), p_sum))
         else:
             # Experimental method
             # Ensure we have the necessary particle data
@@ -409,7 +410,7 @@ def survival_pT(momentum):
     survival_bool_all_masses_pT_plus = []
     momentum_pT = copy.deepcopy(momentum)
     
-    for mass in tqdm(mass_hnl, desc="Computing cut: Transverse momentum"):
+    for mass in tqdm(mass_hnl, desc="[Computing cut] Transverse momentum"):
         original_batch = ParticleBatch(momentum_pT)
         batch_pT_minus = copy.deepcopy(original_batch)
         batch_pT_plus = copy.deepcopy(original_batch)
@@ -441,7 +442,7 @@ def survival_dv(momentum=1, rng_type=1):
     lifetimes_rest = np.zeros((len(mass_hnl), len(mixing), batch_size))
     lorentz_factors = np.zeros((len(mass_hnl), len(mixing), batch_size))
 
-    for i, mass in tqdm(enumerate(mass_hnl), total=len(mass_hnl), desc="Computing cut: Displaced vertex"):
+    for i, mass in tqdm(enumerate(mass_hnl), total=len(mass_hnl), desc="[Computing cut] Displaced vertex   "):
         for j, mix in enumerate(mixing):
             if rng_type == 1:
                 original_batch = ParticleBatch(momentum_dv)
@@ -470,7 +471,7 @@ def survival_invmass_nontrivial(momentum=1):
     survival_bool_invmass_nt = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
     momentum_invmass_nt = copy.deepcopy(momentum)
     total = len(mass_hnl) * len(mixing)
-    with tqdm(total=total, desc="Computing cut: Invariant mass (non-trivial)") as pbar:
+    with tqdm(total=total, desc="[Computing cut]: Invariant mass     ") as pbar:
         for i, mass in enumerate(mass_hnl):
             for j, mix in enumerate(mixing):
                 original_batch = ParticleBatch(momentum_invmass_nt)
@@ -486,7 +487,7 @@ def survival_rap(momentum):
     survival_bool_all_masses_rap_plus = []
     momentum_rap = copy.deepcopy(momentum)
     
-    for mass in tqdm(mass_hnl, desc="Computing cut: Pseudorapidity"):
+    for mass in tqdm(mass_hnl, desc="[Computing cut] Pseudorapidity     "):
         original_batch_minus = ParticleBatch(momentum_rap)
         original_batch_plus = copy.deepcopy(original_batch_minus)  # Ensure it's a deep copy for independent processing
 
@@ -512,7 +513,7 @@ def survival_rap(momentum):
 def survival_invmass(cut_condition, momentum, experimental_trigger=False):
     survival_bool_all_masses_invmass = []
     momentum_invmass = copy.deepcopy(momentum)
-    for mass in tqdm(mass_hnl, desc="Computing cut: Invariant mass"):
+    for mass in tqdm(mass_hnl, desc="[Computing cut] Invariant mass     "):
         original_batch = ParticleBatch(momentum_invmass)
         batch_invmass = copy.deepcopy(original_batch)
         survival_mask_invmass = batch_invmass.mass(mass).cut_invmass(cut_condition, experimental=experimental_trigger)
@@ -523,7 +524,7 @@ def survival_invmass(cut_condition, momentum, experimental_trigger=False):
 def survival_deltaR(cut_condition, momentum):
     survival_bool_all_masses_deltaR = []
     momentum_deltaR = copy.deepcopy(momentum)
-    for mass in tqdm(mass_hnl, desc="Computing cut: Angular separation"):
+    for mass in tqdm(mass_hnl, desc="[Computing cut] Angular separation "):
         original_batch = ParticleBatch(momentum_deltaR)
         batch_deltaR = copy.deepcopy(original_batch)
         survival_mask = batch_deltaR.mass(mass).cut_deltaR(cut_condition)
@@ -547,7 +548,7 @@ def print_dashes(text, char='-'):
 
 def data_processing(momenta):
     print_dashes("Data Processing")
-    
+
     batch = ParticleBatch(momenta)
     
     survival_pT_displaced = survival_pT(momentum=momenta)

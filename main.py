@@ -1,11 +1,11 @@
 from modules import *
 
 def main():
-    # Loading of simulated data (LHE/HEPMC)
-    momenta = data_loading()
-    
     # Setting the RNG seed
     randomness(rng_seed) 
+    
+    # Loading of simulated data (LHE/HEPMC)
+    momenta = data_loading()
 
     # Processing of data and perfoming experimental cuts
     batch, arrays = data_processing(momenta)

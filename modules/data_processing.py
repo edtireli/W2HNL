@@ -403,37 +403,43 @@ class ParticleBatch:
         return new_instance
 
 
-def survival_pT(particle_type, momentum):
-    # Initialize a list to hold the survival boolean arrays for each mass
-    survival_bool_all_masses_pT = []
+def survival_pT(momentum):
+    survival_bool_all_masses_pT_minus = []
+    survival_bool_all_masses_pT_plus = []
     momentum_pT = copy.deepcopy(momentum)
-    for mass in mass_hnl:
+    
+    for mass in tqdm(mass_hnl, desc="Computing cut: Transverse momentum"):
         original_batch = ParticleBatch(momentum_pT)
-        # Make a deep copy of the batch for this particular cut application
-        batch_pT = copy.deepcopy(original_batch)
-        # Select the mass and particle type
-        batch_pT.mass(mass).particle(particle_type)
-        # Apply the pT cut and retrieve the survival mask for all particles
-        survival_mask_pT = batch_pT.cut_pT(pT_minimum)
-        # Append the survival mask to the list
-        survival_bool_all_masses_pT.append(survival_mask_pT)
+        batch_pT_minus = copy.deepcopy(original_batch)
+        batch_pT_plus = copy.deepcopy(original_batch)
+        
+        # Process 'displaced_minus'
+        batch_pT_minus.mass(mass).particle('displaced_minus')
+        survival_mask_pT_minus = batch_pT_minus.cut_pT(pT_minimum)
+        survival_bool_all_masses_pT_minus.append(survival_mask_pT_minus)
+        
+        # Process 'displaced_plus'
+        batch_pT_plus.mass(mass).particle('displaced_plus')
+        survival_mask_pT_plus = batch_pT_plus.cut_pT(pT_minimum)
+        survival_bool_all_masses_pT_plus.append(survival_mask_pT_plus)
 
-    # Convert the list of arrays into a single numpy array for easier handling
-    # This assumes that each mass has the same number of particles, resulting in a (19, 9999) array if there are 9999 particles per mass
-    survival_bool_all_masses_pT = np.array(survival_bool_all_masses_pT)
+    # Convert the lists of arrays into single numpy arrays for easier handling
+    survival_bool_all_masses_pT_minus = np.array(survival_bool_all_masses_pT_minus)
+    survival_bool_all_masses_pT_plus = np.array(survival_bool_all_masses_pT_plus)
 
-    return survival_bool_all_masses_pT
+    # Combine the results as needed
+    combined_survival_pT = survival_bool_all_masses_pT_minus * survival_bool_all_masses_pT_plus
+
+    return combined_survival_pT
 
 
 def survival_dv(momentum=1, rng_type=1):
     momentum_dv = copy.deepcopy(momentum)
-    # Initialize arrays to hold the survival status and decay vertices for each particle across all masses and mixings
     survival_bool_dv = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
     rd_labs = np.zeros((len(mass_hnl), len(mixing), batch_size, 3))  # rd_lab is a 3D vector
     lifetimes_rest = np.zeros((len(mass_hnl), len(mixing), batch_size))
     lorentz_factors = np.zeros((len(mass_hnl), len(mixing), batch_size))
 
-    # Iterate over each mass in mass_hnl with a tqdm progress bar
     for i, mass in tqdm(enumerate(mass_hnl), total=len(mass_hnl), desc="Computing cut: Displaced vertex"):
         for j, mix in enumerate(mixing):
             if rng_type == 1:
@@ -459,78 +465,69 @@ def survival_dv(momentum=1, rng_type=1):
     return survival_bool_dv, rd_labs, lifetimes_rest, lorentz_factors
 
 
-
 def survival_invmass_nontrivial(momentum=1):
-    # Initialize an array to hold the survival status for each particle across all masses and mixings
     survival_bool_invmass_nt = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
     momentum_invmass_nt = copy.deepcopy(momentum)
-
-    for i, mass in enumerate(mass_hnl):
-        for j, mix in enumerate(mixing):
-            original_batch = ParticleBatch(momentum_invmass_nt)
-            # Make a deep copy of the batch for this particular cut application
-            batch_invmass_nt = copy.deepcopy(original_batch)
-            # Apply the DV cut for each mass and mixing scenario
-            survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
-            survival_bool_invmass_nt[i, j, :] = survival_mask_invmass_nt
-
+    total = len(mass_hnl) * len(mixing)
+    with tqdm(total=total, desc="Computing cut: Invariant mass (non-trivial)") as pbar:
+        for i, mass in enumerate(mass_hnl):
+            for j, mix in enumerate(mixing):
+                original_batch = ParticleBatch(momentum_invmass_nt)
+                batch_invmass_nt = copy.deepcopy(original_batch)
+                survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+                survival_bool_invmass_nt[i, j, :] = survival_mask_invmass_nt
+                pbar.update(1)
     return survival_bool_invmass_nt
 
 
-def survival_rap(particle_type, momentum):
-    # Initialize a list to hold the survival boolean arrays for each mass
-    survival_bool_all_masses_rap = []
+def survival_rap(momentum):
+    survival_bool_all_masses_rap_minus = []
+    survival_bool_all_masses_rap_plus = []
     momentum_rap = copy.deepcopy(momentum)
+    
+    for mass in tqdm(mass_hnl, desc="Computing cut: Pseudorapidity"):
+        original_batch_minus = ParticleBatch(momentum_rap)
+        original_batch_plus = copy.deepcopy(original_batch_minus)  # Ensure it's a deep copy for independent processing
 
-    for mass in mass_hnl:
-        original_batch = ParticleBatch(momentum_rap)
-        # Make a deep copy of the batch for this particular cut application
-        batch_rap = copy.deepcopy(original_batch)
-        # Select the mass and particle type, then apply the rapidity cut
-        survival_mask = batch_rap.mass(mass).particle(particle_type).cut_rap()
-        # Append the survival mask to the list
-        survival_bool_all_masses_rap.append(survival_mask)
+        # Process 'displaced_minus'
+        batch_rap_minus = original_batch_minus.mass(mass).particle('displaced_minus')
+        survival_mask_minus = batch_rap_minus.cut_rap()
+        survival_bool_all_masses_rap_minus.append(survival_mask_minus)
+        
+        # Process 'displaced_plus'
+        batch_rap_plus = original_batch_plus.mass(mass).particle('displaced_plus')
+        survival_mask_plus = batch_rap_plus.cut_rap()
+        survival_bool_all_masses_rap_plus.append(survival_mask_plus)
 
-    # Convert the list of arrays into a single numpy array for easier handling
-    survival_bool_all_masses_rap = np.array(survival_bool_all_masses_rap)
+    # Convert the lists of arrays into single numpy arrays for easier handling
+    survival_bool_all_masses_rap_minus = np.array(survival_bool_all_masses_rap_minus)
+    survival_bool_all_masses_rap_plus = np.array(survival_bool_all_masses_rap_plus)
 
-    return survival_bool_all_masses_rap
+    # Combine the results for 'displaced_minus' and 'displaced_plus'
+    combined_survival_rap = survival_bool_all_masses_rap_minus * survival_bool_all_masses_rap_plus
 
-def survival_invmass(cut_condition, momentum, experimental_trigger = False):
-    # Initialize a list to hold the survival boolean arrays for each mass
+    return combined_survival_rap
+
+def survival_invmass(cut_condition, momentum, experimental_trigger=False):
     survival_bool_all_masses_invmass = []
     momentum_invmass = copy.deepcopy(momentum)
-    for mass in mass_hnl:
+    for mass in tqdm(mass_hnl, desc="Computing cut: Invariant mass"):
         original_batch = ParticleBatch(momentum_invmass)
-        # Make a deep copy of the batch for this particular cut application
         batch_invmass = copy.deepcopy(original_batch)
-        # Select the mass, apply the invariant mass cut to the 'displaced_minus' and 'displaced_plus' pair
         survival_mask_invmass = batch_invmass.mass(mass).cut_invmass(cut_condition, experimental=experimental_trigger)
-        # Append the survival mask to the list
         survival_bool_all_masses_invmass.append(survival_mask_invmass)
-
-    # Convert the list of arrays into a single numpy array
     survival_bool_all_masses_invmass = np.array(survival_bool_all_masses_invmass)
-
     return survival_bool_all_masses_invmass
 
-
 def survival_deltaR(cut_condition, momentum):
-    # Initialize a list to hold the survival boolean arrays for each mass
     survival_bool_all_masses_deltaR = []
     momentum_deltaR = copy.deepcopy(momentum)
-    for mass in mass_hnl:
+    for mass in tqdm(mass_hnl, desc="Computing cut: Angular separation"):
         original_batch = ParticleBatch(momentum_deltaR)
-        # Make a deep copy of the batch for this particular cut application
         batch_deltaR = copy.deepcopy(original_batch)
-        # Select the mass, apply the Delta R cut to the 'displaced_minus' and 'displaced_plus' pair
         survival_mask = batch_deltaR.mass(mass).cut_deltaR(cut_condition)
-        # Append the survival mask to the list
         survival_bool_all_masses_deltaR.append(survival_mask)
-
-    # Convert the list of arrays into a single numpy array
     survival_bool_all_masses_deltaR = np.array(survival_bool_all_masses_deltaR)
-
     return survival_bool_all_masses_deltaR
 
 def save_array(array, name=''):
@@ -547,25 +544,19 @@ def data_processing(momenta):
 
     batch = ParticleBatch(momenta)
     
-    print('Computing cut: Transverse momentum')
-    survival_pT_displaced = survival_pT(particle_type='displaced_minus', momentum=momenta) * survival_pT(particle_type='displaced_plus', momentum=momenta)
+    survival_pT_displaced = survival_pT(momentum=momenta)
     
-    print('Computing cut: Pseudorapidity')
-    survival_rap_displaced = survival_rap(particle_type='displaced_minus', momentum=momenta) * survival_rap(particle_type='displaced_plus', momentum=momenta)
+    survival_rap_displaced = survival_rap(momentum=momenta)
     
     if invmass_cut_type == 'nontrivial':
-        print('Computing cut: Invariant mass (nontrivial)')
         survival_invmass_displaced = survival_invmass_nontrivial(momentum=momenta)
     else:
-        print('Computing cut: Invariant mass')
         survival_invmass_displaced = survival_invmass(invmass_minimum, momentum=momenta, experimental_trigger=invmass_experimental)
         
-    print('Computing cut: Angular seperation')
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
     
-    print('Computing cut: Displaced vertex')
     survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta, rng_type=1)
-    print(np.mean(lifetimes_rest_))
+
     arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
               np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
               np.array(survival_deltaR_displaced), 

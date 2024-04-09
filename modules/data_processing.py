@@ -122,8 +122,8 @@ class ParticleBatch:
         """
         if self.selected_momenta is None:
             raise ValueError("Particle type and mass must be selected before computing pseudorapidity.")
-        pz = self.pz()  # Assuming self.pz() returns the z-component of momentum
-        pt = self.pT()  # Assuming self.pT() returns the transverse momentum
+        pz = self.pz() 
+        pt = self.pT() 
         # Avoid division by zero or log of zero by adding a small number epsilon
         epsilon = 1e-9
         eta = -np.log(np.tan(np.arctan2(pt, pz) / 2) + epsilon)

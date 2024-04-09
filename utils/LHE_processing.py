@@ -158,9 +158,9 @@ def process_event(event, prompt_lepton_flavour):
     # Initialize the structure for holding extracted data
     extracted_data = {
         'HNL': [],
-        'prompt_mu': [],
-        'dimu_minus': [],
-        'dimu_plus': [],
+        'prompt_lepton': [],
+        'dilepton_minus': [],
+        'dilepton_plus': [],
         'W_boson': [],
         'neutrino': []  # Assuming interest in neutrinos as well
     }
@@ -177,14 +177,14 @@ def process_event(event, prompt_lepton_flavour):
 
         # Extract prompt leptons
         if abs(particle.pdgid) == pid_prompt_lepton:
-            extracted_data['prompt_mu'].append([particle.energy, particle.px, particle.py, particle.pz])
+            extracted_data['prompt_lepton'].append([particle.energy, particle.px, particle.py, particle.pz])
 
         # Extract displaced leptons (assuming symmetry in PID for + and -)
         if abs(particle.pdgid) == pid_displaced_lepton:
             if particle.pdgid > 0:
-                extracted_data['dimu_plus'].append([particle.energy, particle.px, particle.py, particle.pz])
+                extracted_data['dilepton_plus'].append([particle.energy, particle.px, particle.py, particle.pz])
             else:
-                extracted_data['dimu_minus'].append([particle.energy, particle.px, particle.py, particle.pz])
+                extracted_data['dilepton_minus'].append([particle.energy, particle.px, particle.py, particle.pz])
 
         # Extract neutrinos
         if abs(particle.pdgid) == pid_neutrino:
@@ -210,9 +210,9 @@ def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):
     # Initialize data structure for processed data
     data_structure = {
         'HNL': [],
-        'prompt_mu': [],
-        'dimu_minus': [],
-        'dimu_plus': [],
+        'prompt_lepton': [],
+        'dilepton_minus': [],
+        'dilepton_plus': [],
         'W_boson': [],
         'neutrino': []
     }
@@ -254,7 +254,8 @@ def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):
 
     # Save processed data before returning
     #save_processed_data(data_structure, name) # currently bugged implementation
-
-    return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_mu'],
-            data_structure['dimu_minus'], data_structure['dimu_plus'], data_structure['neutrino'])
+    print('    prompt lepton shape: ', np.shape(data_structure['prompt_lepton']))
+    print('di-lepton (minus) shape: ',data_structure['dilepton_minus'])
+    return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
+            data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
 

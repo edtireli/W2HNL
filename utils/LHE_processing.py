@@ -181,6 +181,7 @@ def process_event(event, prompt_lepton_flavour):
 
         # Extract displaced leptons (assuming symmetry in PID for + and -)
         if abs(particle.pdgid) == pid_displaced_lepton:
+            print('hello')
             if particle.pdgid > 0:
                 extracted_data['dilepton_plus'].append([particle.energy, particle.px, particle.py, particle.pz])
             else:
@@ -256,6 +257,11 @@ def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):
     #save_processed_data(data_structure, name) # currently bugged implementation
     print('    prompt lepton shape: ', np.shape(data_structure['prompt_lepton']))
     print('di-lepton (minus) shape: ',data_structure['dilepton_minus'])
+    print('di-lepton (plus) shape: ',data_structure['dilepton_plus'])
+    print('HNL              shape: ',data_structure['HNL'])
+
+
+
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
             data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
 

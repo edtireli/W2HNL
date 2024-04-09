@@ -181,7 +181,6 @@ def process_event(event, prompt_lepton_flavour):
 
         # Extract displaced leptons (assuming symmetry in PID for + and -)
         if abs(particle.pdgid) == pid_displaced_lepton:
-            print('hello')
             if particle.pdgid > 0:
                 extracted_data['dilepton_plus'].append([particle.energy, particle.px, particle.py, particle.pz])
             else:

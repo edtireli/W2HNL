@@ -13,8 +13,8 @@ pseudorapidity_maximum = 2.4 # Maximum pseudorapidity criteria for HNL decay
 
 cut_type_dv = 'sphere' # Either cylinder or sphere
 r_min = '120 mm' # Minimum distance from interaction point (IP) to consider HNL decays/decay volume
-r_max_t = '5 m' # Maximum distance from interaction point (IP) to consider HNL decays/decay volume in the transverse direction
-r_max_l = '6.5 m' # Maximum distance from interaction point (IP) to consider HNL decays/decay volume in the longitudinal (z) direction along beamline
+r_max_t = '300 mm' # Maximum distance from interaction point (IP) to consider HNL decays/decay volume in the transverse direction
+r_max_l = '300 mm' # Maximum distance from interaction point (IP) to consider HNL decays/decay volume in the longitudinal (z) direction along beamline
 
 luminosity = 300 # 1/fb
 production_minimum   = 3 # The minimum number of HNLs produced within the parameter region to consider it a success (production_minimum = 3 for 95% CL)

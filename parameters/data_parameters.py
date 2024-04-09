@@ -1,4 +1,4 @@
-data_folder = 'w2tau_@1$' # Folder name containing MadGraph data
+data_folder = 'w2tau_moremass' # Folder name containing MadGraph data
 #data_folder = 'w2tau-muchmoremass'
 prompt_lepton_flavour = 3 # 1 = electron, 2 = muon, 3 = tau
 

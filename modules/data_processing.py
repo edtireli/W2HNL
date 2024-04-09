@@ -633,22 +633,14 @@ def save_cut_array(array, name=''):
     
     np.savez_compressed(array_path, **arrays_to_save)
 
-def load_cut_array(name='', data_folder=''):
-    # Construct the path to where the arrays are saved
+def load_cut_array(name=''):
     current_directory = os.getcwd()
-    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
-    array_path = os.path.join(data_path, f'{name}.npz')
-    
-    # Load the compressed arrays
-    loaded_arrays = np.load(array_path)
-    
-    # Prepare the list to store loaded arrays
-    arrays_list = []
-    for array_name in loaded_arrays:
-        # Extract each array. If type handling is needed, it should be implemented here
-        arrays_list.append(loaded_arrays[array_name])
-    
-    return arrays_list
+    data_path = os.path.join(current_directory, 'data', data_folder)
+    array_path = os.path.join(data_path, 'Cut computations', f'{name}.npz')
+    if os.path.exists(array_path):
+        data = np.load(array_path)
+        return (data['survival_bool_dv'], data['rd_labs'], data['lifetimes_rest'], data['lorentz_factors'])
+    return None
 
 def data_processing(momenta):
     print_dashes("Data Processing")

@@ -254,11 +254,6 @@ def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):
 
     # Save processed data before returning
     #save_processed_data(data_structure, name) # currently bugged implementation
-    print('    prompt lepton shape: ', np.shape(data_structure['prompt_lepton']))
-    print('di-lepton (minus) shape: ',data_structure['dilepton_minus'])
-    print('di-lepton (plus) shape: ',data_structure['dilepton_plus'])
-    print('HNL              shape: ',data_structure['HNL'])
-
 
 
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],

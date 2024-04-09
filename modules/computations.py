@@ -67,6 +67,7 @@ def save_array(array, name=''):
     data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
     array_path         = os.path.join(data_path, 'Plots', 'Plot data', f'{name}.npy')
     os.makedirs(os.path.join(data_path, 'Plots'), exist_ok=True) # Making directory if not already exists
+    os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True) # Making directory if not already exists
 
     np.save(array_path, array)
 
@@ -82,7 +83,7 @@ def computations(momenta, arrays):
         survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
     else:
         survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
-        
+
     print('     Invariant mass survival: ', np.mean(survival_invmass_displaced)) # Validated for trivial case
     print('     Pseudorapidity survival: ', np.mean(survival_rap_displaced)) # A bit high (because we use simple pseudorapidity)
     print('   Displaced vertex survival: ', np.mean(survival_dv_displaced)) # Validated

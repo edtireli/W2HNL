@@ -22,7 +22,7 @@ from matplotlib import cm
 delete_png_before_use = False
 
 # Simple pT and rapidity plots
-preliminary_plots = False
+preliminary_plots = True
 
 # Dynamic plot (Web hosted 3d lab frame decay vertex plot with daughters as arrows)
 dynamic_plot = False
@@ -460,9 +460,12 @@ def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, lab
 
     if plot_mass_mixing_lines:
         constants = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5]
+        #lifetime for mass middle, and mixing angle 
+        #tau(mass, theta^2=1)/(theta^2) * c*gamma = C
+        #theta^2 = tau(M_star, theta^2=1)/C 
         for C in constants:
             mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
-            mixing_for_constant = C / mass_range**6
+            mixing_for_constant = C / mass_range**6 
             plt.plot(mass_range, mixing_for_constant, '--', color='red', label=f'C={C:.1e}', alpha=0.4)
 
             label_index = len(mass_range) // 2  # Midpoint for placing text
@@ -739,11 +742,16 @@ def print_dashes(text, char='-'):
 def plotting(momenta, batch, production_arrays, arrays):
     print_dashes('Plotting')
     # Loading of arrays supplied from main:
-    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
+    if not large_data:
+        survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
+    else:
+        survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
+
     production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass = production_arrays
     save_array(production_allcuts, f'production_allcuts_{luminosity}')
-    save_array(lifetimes_rest, name='lifetime_rest_data')
-    average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
+    if not large_data:
+        save_array(lifetimes_rest, name='lifetime_rest_data')
+        average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
 
     current_directory = os.getcwd()
     data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
@@ -784,73 +792,61 @@ def plotting(momenta, batch, production_arrays, arrays):
             savename='pseudorapidity_distribution'
         )
 
-        rapidity_mask = ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').cut_rap()
-        eta_plot_data = [
-            {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').eta(), 'label': '$\\mu^-$','linestyle': '-'},
-            {'data': ParticleBatch(momenta).mass('7 GeV').particle('displaced_minus').apply_mask(rapidity_mask).eta(), 'label': '$\\mu^-$ ($\\eta$-cut)','linestyle': '--'},
-        ]
-        plot_histograms(
-            data_list=eta_plot_data,
-            title='Pseudorapidity distribution from 7 GeV HNLs',
-            x_label='$\\eta$',
-            y_label='Frequency',
-            savename='pseudorapidity_distribution_with_cut'
-        )
-
     # Decay vertex plots (enable/disable):
-    if plots_decay_stats:
-        index_mass, index_mixing = find_closest_indices(target_mass=6, target_mixing=1e-6)
-        lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing], 'label': '$\\tau_N$','linestyle': '-'}]
-        plot_histograms(
-            data_list=lifetime_data, 
-            title=f'Distribution of HNL lifetimes in rest frame for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
-            x_label='1/GeV',
-            y_label='Frequency',
-            savename='HNL_proper_time'
-        )
+    if not large_data:
+        if plots_decay_stats:
+            index_mass, index_mixing = find_closest_indices(target_mass=6, target_mixing=1e-6)
+            lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing], 'label': '$\\tau_N$','linestyle': '-'}]
+            plot_histograms(
+                data_list=lifetime_data, 
+                title=f'Distribution of HNL lifetimes in rest frame for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
+                x_label='1/GeV',
+                y_label='Frequency',
+                savename='HNL_proper_time'
+            )
 
-        lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing]*lorentz_factors[index_mass,index_mixing]*light_speed(), 'label': '$\\tau_N$','linestyle': '-'}]
-        plot_histograms(
-            data_list=lifetime_data, 
-            title=f'Distribution of HNL lab decay distances for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
-            x_label='m',
-            y_label='Frequency',
-            savename='HNL_decay_distance_lab'
-        )
+            lifetime_data =[{'data': lifetimes_rest[index_mass,index_mixing]*lorentz_factors[index_mass,index_mixing]*light_speed(), 'label': '$\\tau_N$','linestyle': '-'}]
+            plot_histograms(
+                data_list=lifetime_data, 
+                title=f'Distribution of HNL lab decay distances for $M_N=${mass_hnl[index_mass]} and $\Theta_\\tau = $ {mixing[index_mixing]}',
+                x_label='m',
+                y_label='Frequency',
+                savename='HNL_decay_distance_lab'
+            )
 
-        _, index_mixing = find_closest_indices(target_mass=6, target_mixing=1)
-        rd_lab_norm = np.linalg.norm(r_lab, axis=-1)
-        rd_lab_norm_selected = rd_lab_norm[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
-        lifetimes_rest_selected = lifetimes_rest[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
-        lorentz_factors_selected = lorentz_factors[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
+            _, index_mixing = find_closest_indices(target_mass=6, target_mixing=1)
+            rd_lab_norm = np.linalg.norm(r_lab, axis=-1)
+            rd_lab_norm_selected = rd_lab_norm[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
+            lifetimes_rest_selected = lifetimes_rest[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
+            lorentz_factors_selected = lorentz_factors[:, index_mixing]  # Shape: (len(mass_hnl), batch_size)
 
-        normalized_decay_distances = rd_lab_norm_selected / (lifetimes_rest_selected * light_speed() * lorentz_factors_selected)
-        average_normalized_decay_distance = np.mean(normalized_decay_distances, axis=1)
+            normalized_decay_distances = rd_lab_norm_selected / (lifetimes_rest_selected * light_speed() * lorentz_factors_selected)
+            average_normalized_decay_distance = np.mean(normalized_decay_distances, axis=1)
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(mass_hnl, average_normalized_decay_distance, marker='o', linestyle='-', color='blue')
-        plt.xlabel('HNL Mass (GeV)')
-        plt.ylabel('Average Normalized Decay Distance $\\frac{L}{c\\tau\\gamma}$')
-        plt.title('Average Normalized Decay Distance vs. HNL Mass')
-        plt.grid(True)
-        save_plot('Lctg')
-        plt.show()
+            plt.figure(figsize=(10, 6))
+            plt.plot(mass_hnl, average_normalized_decay_distance, marker='o', linestyle='-', color='blue')
+            plt.xlabel('HNL Mass (GeV)')
+            plt.ylabel('Average Normalized Decay Distance $\\frac{L}{c\\tau\\gamma}$')
+            plt.title('Average Normalized Decay Distance vs. HNL Mass')
+            plt.grid(True)
+            save_plot('Lctg')
+            plt.show()
+            
+            plt.figure(figsize=(10, 6))
+            plt.scatter(mass_hnl, average_lorentz_factors, linestyle='-', color='k', alpha=0.75, s=4)
+            plt.xlabel('HNL mass $M_N$ (GeV)')
+            plt.ylabel('Average Lorentz factor $\gamma_N$')
+            plt.title('Average Lorentz factors as a function of HNL mass')
+            plt.grid(True)
+            save_plot('lorentz_factors')
+            plt.show()
+
+
+        index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
+        index_mass_best, index_mixing_best = find_best_survival_indices(survival_dv_displaced)
+        if dynamic_plot:
+            plot_decay_vertices_with_trajectories(r_lab, survival_dv_displaced,batch, index_mass_best,index_mixing_best, title=f'Surviving Decay Vertices in 3D Space for $M_N=${mass_hnl[index_mass_best]}, $\\Theta_\\tau^2 ≈$ {mixing[index_mixing_best]}')
         
-        plt.figure(figsize=(10, 6))
-        plt.scatter(mass_hnl, average_lorentz_factors, linestyle='-', color='k', alpha=0.75, s=4)
-        plt.xlabel('HNL mass $M_N$ (GeV)')
-        plt.ylabel('Average Lorentz factor $\gamma_N$')
-        plt.title('Average Lorentz factors as a function of HNL mass')
-        plt.grid(True)
-        save_plot('lorentz_factors')
-        plt.show()
-
-
-    index_mass, index_mixing = find_closest_indices(target_mass=6.5, target_mixing=4e-5)
-    index_mass_best, index_mixing_best = find_best_survival_indices(survival_dv_displaced)
-    if dynamic_plot:
-        plot_decay_vertices_with_trajectories(r_lab, survival_dv_displaced,batch, index_mass_best,index_mixing_best, title=f'Surviving Decay Vertices in 3D Space for $M_N=${mass_hnl[index_mass_best]}, $\\Theta_\\tau^2 ≈$ {mixing[index_mixing_best]}')
-    
     # Survival plots: 
     if survival_plots:
         # DV cut heatmap from data

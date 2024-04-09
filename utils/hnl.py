@@ -673,6 +673,8 @@ if __name__ == '__main__':
 	#prompt1a = float(input('[!] Enter HNL mixing (e): ') )
 	#prompt1b = float(input('[!] Enter HNL mixing (mu): ') )
 	#prompt1c = float(input('[!] Enter HNL mixing (tau): ') )
-	b = HNL(10,[0,0,1],True)
-	print(b.NDecayWidth())
-		
+    #import matplotlib.pyplot as plt
+    #masses = [m for m]
+	#b = [HNL(m,[0,0,1],True) for m in masses]
+    #print(b.NDecayWidth())
+	#plt.plot()

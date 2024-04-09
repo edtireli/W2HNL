@@ -198,19 +198,24 @@ class ParticleBatch:
         if self.selected_mass_index is None or self.current_particle_type is None:
             raise ValueError("Both HNL mass and particle type must be selected before applying DV cut.")
         
-        p_lab = self.selected_momenta
-        HNLMass = self.mass_hnl[self.selected_mass_index]
+        p_lab = self.selected_momenta.astype(np.float16)  # Convert momenta to float16
 
-        # Step 1: Compute Lorentz factor for HNLs
-        g_lab = p_lab[:, 0] / HNLMass
+        HNLMass = np.float16(self.mass_hnl[self.selected_mass_index])  # Ensure mass is float16
 
-        # Multiply decay times by Lorentz factor to get decay times in lab frame
-        td_lab = g_lab * tau
+        # Step 1: Compute Lorentz factor for HNLs as float16
+        g_lab = np.divide(p_lab[:, 0], HNLMass).astype(np.float16)
 
-        decay_length_lab = td_lab * light_speed() 
+        # Step 2: Find tau and generate decay times in the lab frame, ensuring operations are in float16
+        tau_ = np.float16(self.find_tau(HNLMass, [0,0,1], flavour_hnl))
+        tau_ = np.divide(tau_, np.float16(angle_sq))
+        td = np.random.exponential(tau_, size=len(p_lab)).astype(np.float16)
+        # Multiply decay times by Lorentz factor to get decay times in lab frame, as float16
+        td_lab = np.multiply(g_lab, td).astype(np.float16)
+
+        decay_length_lab = np.multiply(td_lab, np.float16(light_speed())).astype(np.float16)
         
-        # Step 3: Calculate decay positions in 3D space
-        rd_lab = (p_lab[:, 1:4].T * (td_lab / p_lab[:, 0])).T
+        # Step 3: Calculate decay positions in 3D space as float16
+        rd_lab = np.multiply((p_lab[:, 1:4].T, td_lab / p_lab[:, 0])).T.astype(np.float16)
         
         # Calculate the norm of decay positions to get distances
         rd_lab_norm = np.linalg.norm(rd_lab, axis=1)
@@ -406,48 +411,64 @@ class ParticleBatch:
 
 
 def survival_pT(momentum):
+    array_name = f"survival_pT_{pT_minimum}"
+    loaded_array = load_cut_array(array_name)
+    if loaded_array is not None:
+        return loaded_array
+    
     survival_bool_all_masses_pT_minus = []
     survival_bool_all_masses_pT_plus = []
     momentum_pT = copy.deepcopy(momentum)
     
-    for mass in tqdm(mass_hnl, desc="[Computing cut] Transverse momentum"):
+    for mass in tqdm(mass_hnl, desc=f"[Computing cut] Transverse momentum "):
         original_batch = ParticleBatch(momentum_pT)
         batch_pT_minus = copy.deepcopy(original_batch)
         batch_pT_plus = copy.deepcopy(original_batch)
         
-        # Process 'displaced_minus'
         batch_pT_minus.mass(mass).particle('displaced_minus')
         survival_mask_pT_minus = batch_pT_minus.cut_pT(pT_minimum)
         survival_bool_all_masses_pT_minus.append(survival_mask_pT_minus)
         
-        # Process 'displaced_plus'
         batch_pT_plus.mass(mass).particle('displaced_plus')
         survival_mask_pT_plus = batch_pT_plus.cut_pT(pT_minimum)
         survival_bool_all_masses_pT_plus.append(survival_mask_pT_plus)
 
-    # Convert the lists of arrays into single numpy arrays for easier handling
     survival_bool_all_masses_pT_minus = np.array(survival_bool_all_masses_pT_minus)
     survival_bool_all_masses_pT_plus = np.array(survival_bool_all_masses_pT_plus)
-
-    # Combine the results as needed
+    
     combined_survival_pT = survival_bool_all_masses_pT_minus * survival_bool_all_masses_pT_plus
-
+    
+    #save_cut_array(combined_survival_pT, array_name)
+    
     return combined_survival_pT
 
+from multiprocessing import Pool
 
 def survival_dv(momentum=1, rng_type=1):
+    array_name_base = f"survival_dv_{cut_type_dv}_{r_min}_{r_max_l}_{r_max_t}"
+    
+    # Attempt to load each array separately
+    loaded_bool_dv = load_cut_array(f"{array_name_base}_survival_bool_dv")
+    loaded_rd_labs = load_cut_array(f"{array_name_base}_rd_labs")
+    loaded_lifetimes_rest = load_cut_array(f"{array_name_base}_lifetimes_rest")
+    loaded_lorentz_factors = load_cut_array(f"{array_name_base}_lorentz_factors")
+
+    if all(v is not None for v in [loaded_bool_dv, loaded_rd_labs, loaded_lifetimes_rest, loaded_lorentz_factors]):
+        print('[Loaded cut] Displaced vertex')
+        return loaded_bool_dv, loaded_rd_labs, loaded_lifetimes_rest, loaded_lorentz_factors
+
     momentum_dv = copy.deepcopy(momentum)
     survival_bool_dv = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
-    rd_labs = np.zeros((len(mass_hnl), len(mixing), batch_size, 3))  # rd_lab is a 3D vector
+    rd_labs = np.zeros((len(mass_hnl), len(mixing), batch_size, 3))
     lifetimes_rest = np.zeros((len(mass_hnl), len(mixing), batch_size))
     lorentz_factors = np.zeros((len(mass_hnl), len(mixing), batch_size))
 
-    for i, mass in tqdm(enumerate(mass_hnl), total=len(mass_hnl), desc="[Computing cut] Displaced vertex   "):
+    for i, mass in tqdm(enumerate(mass_hnl), total=len(mass_hnl), desc="[Computing cut] Displaced vertex    "):
+        original_batch = ParticleBatch(momentum_dv)
+        # Make a deep copy of the batch for this particular cut application
+        batch_dv = copy.deepcopy(original_batch)
         for j, mix in enumerate(mixing):
             if rng_type == 1:
-                original_batch = ParticleBatch(momentum_dv)
-                # Make a deep copy of the batch for this particular cut application
-                batch_dv = copy.deepcopy(original_batch)
                 # Apply the DV cut for each mass and mixing scenario and get decay vertices
                 survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv(mix, cut_type_dv, unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
             elif rng_type == 2:
@@ -460,18 +481,35 @@ def survival_dv(momentum=1, rng_type=1):
                 survival_mask_dv, rd_lab, td, g_lab = batch_dv.mass(mass).particle('hnl').cut_dv_2(mix, lifetime_spread_mixing, cut_type_dv, unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
             
             survival_bool_dv[i, j, :] = survival_mask_dv
-            rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
-            lifetimes_rest[i, j, :] = td
-            lorentz_factors[i, j, :] = g_lab
 
-    return survival_bool_dv, rd_labs, lifetimes_rest, lorentz_factors
+            if not large_data:
+                rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
+                lifetimes_rest[i, j, :] = td
+                lorentz_factors[i, j, :] = g_lab
+
+            # Save each array separately, specifying 'float16' where appropriate.
+            #save_cut_array(survival_bool_dv, f"{array_name_base}_survival_bool_dv")
+            #save_cut_array((rd_labs, 'float16'), f"{array_name_base}_rd_labs")  # Saving as float16
+            #save_cut_array((lifetimes_rest, 'float16'), f"{array_name_base}_lifetimes_rest")  # Saving as float16
+            #save_cut_array((lorentz_factors, 'float16'), f"{array_name_base}_lorentz_factors")  # Saving as float16
+    if not large_data:
+        return survival_bool_dv, rd_labs, lifetimes_rest, lorentz_factors
+    else:
+        return survival_bool_dv
 
 
 def survival_invmass_nontrivial(momentum=1):
+    array_name = "survival_invmass_nontrivial"
+    loaded_array = load_cut_array(array_name)
+    if loaded_array is not None:
+        print('[Loaded cut] Invariant mass')
+        return loaded_array
+    
     survival_bool_invmass_nt = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
     momentum_invmass_nt = copy.deepcopy(momentum)
     total = len(mass_hnl) * len(mixing)
-    with tqdm(total=total, desc="[Computing cut]: Invariant mass     ") as pbar:
+
+    with tqdm(total=total, desc="[Computing cut] Invariant mass      ") as pbar:
         for i, mass in enumerate(mass_hnl):
             for j, mix in enumerate(mixing):
                 original_batch = ParticleBatch(momentum_invmass_nt)
@@ -479,17 +517,27 @@ def survival_invmass_nontrivial(momentum=1):
                 survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
                 survival_bool_invmass_nt[i, j, :] = survival_mask_invmass_nt
                 pbar.update(1)
+
+    #save_cut_array(survival_bool_invmass_nt, array_name)
     return survival_bool_invmass_nt
 
 
 def survival_rap(momentum):
+    # Define a dynamic name based on conditions/parameters you might want to include
+    array_name = f"survival_rap_{pseudorapidity_maximum}"
+    loaded_array = load_cut_array(array_name)
+    if loaded_array is not None:
+        print('[Loaded cut] Pseudorapidity')
+        return loaded_array
+    
     survival_bool_all_masses_rap_minus = []
     survival_bool_all_masses_rap_plus = []
     momentum_rap = copy.deepcopy(momentum)
-    
-    for mass in tqdm(mass_hnl, desc="[Computing cut] Pseudorapidity     "):
+    momentum_rap_2 = copy.deepcopy(momentum)
+
+    for mass in tqdm(mass_hnl, desc="[Computing cut] Pseudorapidity      "):
         original_batch_minus = ParticleBatch(momentum_rap)
-        original_batch_plus = copy.deepcopy(original_batch_minus)  # Ensure it's a deep copy for independent processing
+        original_batch_plus = ParticleBatch(momentum_rap_2)
 
         # Process 'displaced_minus'
         batch_rap_minus = original_batch_minus.mass(mass).particle('displaced_minus')
@@ -501,36 +549,55 @@ def survival_rap(momentum):
         survival_mask_plus = batch_rap_plus.cut_rap()
         survival_bool_all_masses_rap_plus.append(survival_mask_plus)
 
-    # Convert the lists of arrays into single numpy arrays for easier handling
     survival_bool_all_masses_rap_minus = np.array(survival_bool_all_masses_rap_minus)
     survival_bool_all_masses_rap_plus = np.array(survival_bool_all_masses_rap_plus)
 
-    # Combine the results for 'displaced_minus' and 'displaced_plus'
     combined_survival_rap = survival_bool_all_masses_rap_minus * survival_bool_all_masses_rap_plus
 
+    # Save the combined result before returning
+    #save_cut_array(combined_survival_rap, array_name)
+    
     return combined_survival_rap
 
 def survival_invmass(cut_condition, momentum, experimental_trigger=False):
+    array_name = f"survival_invmass_{cut_condition}"
+    loaded_array = load_cut_array(array_name)
+    if loaded_array is not None:
+        print('[Loaded cut] Invariant mass')
+        return loaded_array
+    
     survival_bool_all_masses_invmass = []
     momentum_invmass = copy.deepcopy(momentum)
-    for mass in tqdm(mass_hnl, desc="[Computing cut] Invariant mass     "):
+    for mass in tqdm(mass_hnl, desc="[Computing cut] Invariant mass      "):
         original_batch = ParticleBatch(momentum_invmass)
         batch_invmass = copy.deepcopy(original_batch)
         survival_mask_invmass = batch_invmass.mass(mass).cut_invmass(cut_condition, experimental=experimental_trigger)
         survival_bool_all_masses_invmass.append(survival_mask_invmass)
+    
     survival_bool_all_masses_invmass = np.array(survival_bool_all_masses_invmass)
+    #save_cut_array(survival_bool_all_masses_invmass, array_name)
     return survival_bool_all_masses_invmass
 
+
 def survival_deltaR(cut_condition, momentum):
+    array_name = f"survival_dR_{cut_condition}"
+    loaded_array = load_cut_array(array_name)
+    if loaded_array is not None:
+        print('[Loaded cut] Angular seperation')
+        return loaded_array
+    
     survival_bool_all_masses_deltaR = []
     momentum_deltaR = copy.deepcopy(momentum)
-    for mass in tqdm(mass_hnl, desc="[Computing cut] Angular separation "):
+    for mass in tqdm(mass_hnl, desc="[Computing cut] Angular separation  "):
         original_batch = ParticleBatch(momentum_deltaR)
         batch_deltaR = copy.deepcopy(original_batch)
         survival_mask = batch_deltaR.mass(mass).cut_deltaR(cut_condition)
         survival_bool_all_masses_deltaR.append(survival_mask)
+    
     survival_bool_all_masses_deltaR = np.array(survival_bool_all_masses_deltaR)
+    #save_cut_array(survival_bool_all_masses_deltaR, array_name)
     return survival_bool_all_masses_deltaR
+
 
 def save_array(array, name=''):
     current_directory = os.getcwd()                                         # Current path
@@ -545,6 +612,43 @@ def print_dashes(text, char='-'):
     side = (width - len(text) - 2) // 2
     print(f"{char * side} {text} {char * (width - side - len(text) - 2)}")
 
+def save_cut_array(array, name=''):
+    current_directory = os.getcwd()
+    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    os.makedirs(data_path, exist_ok=True)
+    array_path = os.path.join(data_path, f'{name}.npz')
+    
+    # Prepare arrays for saving, checking if any needs to be saved as float16
+    arrays_to_save = {}
+    for i, arr in enumerate(array):
+        array_name = f'arr_{i}'
+        if isinstance(arr, tuple):
+            data, data_type = arr
+            if data_type == 'float16':
+                arrays_to_save[array_name] = data.astype(np.float16)
+            else:
+                arrays_to_save[array_name] = data
+        else:
+            arrays_to_save[array_name] = arr
+    
+    np.savez_compressed(array_path, **arrays_to_save)
+
+def load_cut_array(name='', data_folder=''):
+    # Construct the path to where the arrays are saved
+    current_directory = os.getcwd()
+    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    array_path = os.path.join(data_path, f'{name}.npz')
+    
+    # Load the compressed arrays
+    loaded_arrays = np.load(array_path)
+    
+    # Prepare the list to store loaded arrays
+    arrays_list = []
+    for array_name in loaded_arrays:
+        # Extract each array. If type handling is needed, it should be implemented here
+        arrays_list.append(loaded_arrays[array_name])
+    
+    return arrays_list
 
 def data_processing(momenta):
     print_dashes("Data Processing")
@@ -562,12 +666,19 @@ def data_processing(momenta):
         
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
     
-    survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta, rng_type=1)
-
-    arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
+    if not large_data:
+        survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta, rng_type=1)
+        arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
               np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
               np.array(survival_deltaR_displaced), 
               np.array(r_lab), np.array(lifetimes_rest_), np.array(lorentz_factors)
      ) # defining a tuple for easier management of survival arrays on main
-    save_array(survival_dv_displaced)
+    else:
+        survival_dv_displaced = survival_dv(momentum=momenta, rng_type=1)
+        arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
+              np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
+              np.array(survival_deltaR_displaced)
+     ) # defining a tuple for easier management of survival arrays on main
+        
+    
     return batch, arrays

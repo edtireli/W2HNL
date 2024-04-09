@@ -1,7 +1,6 @@
 tqdm
 numpy
 scipy
-shutil
 plotly
 future
 seaborn

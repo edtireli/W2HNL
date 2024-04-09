@@ -78,8 +78,11 @@ def print_dashes(text, char='-'):
 
 def computations(momenta, arrays):
     print_dashes('Computing HNL production')
-    survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
-
+    if not large_data:
+        survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
+    else:
+        survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
+        
     print('     Invariant mass survival: ', np.mean(survival_invmass_displaced)) # Validated for trivial case
     print('     Pseudorapidity survival: ', np.mean(survival_rap_displaced)) # A bit high (because we use simple pseudorapidity)
     print('   Displaced vertex survival: ', np.mean(survival_dv_displaced)) # Validated

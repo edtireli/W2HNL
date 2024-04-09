@@ -192,12 +192,22 @@ def process_event(event, prompt_lepton_flavour):
 
     return extracted_data
     
+def save_processed_data(data, file_path):
+    np.savez_compressed(os.path.join(file_path, data_folder), **data)
+
+def load_processed_data(file_path):
+    if os.path.exists(file_path):
+        print('[Loaded files] Preprocessed LHE data')
+        with np.load(file_path) as data:
+            return {key: data[key] for key in data}
+    return None
+
 def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):
     event_dirs = sorted(glob(os.path.join(folder, 'Events', 'run_*')), key=lambda x: int(x.split('_')[-1]))
-    # Use the length of event_dirs directly since it represents the actual number of runs found
-    n_scans = len(event_dirs)
+    total_events_to_process = min(len(event_dirs), len(mass_hnl)) * prompt_length
+    progress_bar = tqdm(total=total_events_to_process, desc='Processing LHE Files')
 
-    # Initialize containers for the extracted data for each particle type
+    # Initialize data structure for processed data
     data_structure = {
         'HNL': [],
         'prompt_mu': [],
@@ -207,16 +217,20 @@ def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):
         'neutrino': []
     }
 
-    # Estimate the total number of events to be processed across all runs
-    # Assuming you might not process all events in a run, use min(len(event_dirs), len(mass_hnl)) * prompt_length
-    total_events_to_process = min(len(event_dirs), len(mass_hnl)) * prompt_length
-    progress_bar = tqdm(total=total_events_to_process, desc='Processing LHE Files')
+    # Check if processed data already exists
+    current_directory = os.getcwd()                                         # Current path
+    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    name = 'processed_LHE_data.npz'
+    processed_data = load_processed_data(os.path.join(data_path, name))
+    if processed_data:
+        progress_bar.close()
+        return processed_data
 
     for dir_path in event_dirs:
         lhe_gz_path = os.path.join(dir_path, 'unweighted_events.lhe.gz')
         if path.exists(lhe_gz_path):
-            unzip_lhe_file(lhe_gz_path)  # Unzip the LHE file before reading
-        
+            unzip_lhe_file(lhe_gz_path)
+    
         lhe_file_path = os.path.join(dir_path, 'unweighted_events.lhe')
         reader = LHEReader(lhe_file_path)
         scan_data = {key: [] for key in data_structure.keys()}
@@ -227,19 +241,19 @@ def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):
             event_data = process_event(event, prompt_lepton_flavour)
             for key in scan_data:
                 scan_data[key].append(event_data[key])
+            progress_bar.update(1)
 
-            progress_bar.update(1)  # Update progress bar per event processed
-
-        # Convert lists to numpy arrays for each particle type after processing a run
         for key in data_structure:
             data_structure[key].append(np.array(scan_data[key]))
 
-    progress_bar.close()  # Ensure the progress bar is closed after processing
+    progress_bar.close()
 
-    # Convert the list of numpy arrays to a single numpy array for each particle type
     for key in data_structure:
         flat_data = [np.concatenate(scan, axis=0) for scan in data_structure[key] if len(scan) > 0]
         data_structure[key] = np.stack(flat_data) if flat_data else np.empty((0, prompt_length, 4))
+
+    # Save processed data before returning
+    #save_processed_data(data_structure, name) # currently bugged implementation
 
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_mu'],
             data_structure['dimu_minus'], data_structure['dimu_plus'], data_structure['neutrino'])

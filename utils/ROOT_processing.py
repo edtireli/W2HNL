@@ -83,6 +83,7 @@ def process_event(event):
     return data
 
 def root_data_processing(folder_path):
+    print(folder_path)
     reader = ROOTReader(folder_path)
     data_structure = {
         'W_boson': [],

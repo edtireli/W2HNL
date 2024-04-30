@@ -59,6 +59,8 @@ def root_data_processing(data_folder):
     # Concatenate the data across all files, avoiding empty concatenation
     concatenated_data = {key: ak.concatenate(values) if values else ak.Array([]) for key, values in particle_data.items()}
     
+    print(np.shape(concatenated_data['W_boson']))
+    
     return (
         concatenated_data['W_boson'],
         concatenated_data['HNL'],

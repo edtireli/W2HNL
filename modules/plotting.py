@@ -437,7 +437,7 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
     save_survival_data(survival_fraction, savename)
     plt.show()
 
-def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, labels=None, colors=None, title='', savename='', plot_mass_mixing_lines=False):
+def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, labels=None, colors=None, title='', savename='', plot_mass_mixing_lines=False, gammas=None):
     """
     Plot survival fraction on the parameter space directly using the actual survival values.
 
@@ -459,20 +459,28 @@ def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, lab
     plt.colorbar(mesh, label='Survival Fraction')
 
     if plot_mass_mixing_lines:
-        constants = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5]
-        #lifetime for mass middle, and mixing angle 
-        #tau(mass, theta^2=1)/(theta^2) * c*gamma = C
-        #theta^2 = tau(M_star, theta^2=1)/C 
-        for C in constants:
-            mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
-            mixing_for_constant = C / mass_range**6 
-            plt.plot(mass_range, mixing_for_constant, '--', color='red', label=f'C={C:.1e}', alpha=0.4)
+        constants = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100, 1000, 10000, 100000]
+        c = light_speed() 
 
-            label_index = len(mass_range) // 2  # Midpoint for placing text
-            label_y_position = mixing_for_constant[label_index] * 0.5
-            if C > 1e-4 and C < 1e4:
-                plt.text(mass_range[label_index], label_y_position, f'$c\\tau\\gamma = {C:.1e}$', color='red', fontsize=9,
-                         ha='center', va='bottom', rotation=-22, alpha=0.4)
+        for C in constants:
+            if C <= 1e-4 or C >= 1e5:
+                continue 
+
+            tau_values = [HNL(mass, [0,0,1], False).computeNLifetime() for mass in mass_hnl]
+            mixing_values_for_C = np.array([C / (tau * c * gammas[index]) for index, tau in enumerate(tau_values)])
+            reciprocal_mixing_values = 1 / mixing_values_for_C
+
+            plt.plot(mass_hnl, reciprocal_mixing_values, '--', color='red', label=f'C={1/C:.1e}', alpha=0.4)
+
+            label_index = len(mass_hnl) // 2
+            if 1/C <= 1e-4 or 1/C >= 1e5:
+                continue 
+
+            # Format the C value as a power of ten for the label
+            C_label = f'10^{{{int(np.log10(1/C))}}}' if 1/C != 1 else '1'
+            plt.text(mass_hnl[label_index], reciprocal_mixing_values[label_index], f'$c\\tau\\gamma = {C_label}$ m', color='red', fontsize=9,
+                    ha='center', va='bottom', rotation=-15, alpha=0.4)
+
 
     plt.xscale('linear')
     plt.yscale('log')
@@ -658,6 +666,7 @@ def find_best_survival_indices(survival_dv):
     index_mass, index_mixing = np.unravel_index(np.argmax(survival_rates), survival_rates.shape)
 
     return index_mass, index_mixing
+
 
 def plot_production_heatmap(production, title='Production Rates', savename='', save_grid=False):
     # Create a meshgrid for interpolation
@@ -851,30 +860,30 @@ def plotting(momenta, batch, production_arrays, arrays):
     if survival_plots:
         # DV cut heatmap from data
         survival_dv_fraction = calculate_survival_fraction((survival_dv_displaced))
-        plot_survival_parameter_space_regions_nointerpolation(survival_dv_fraction, title='HNL survival (DV cut)', savename='survival_dv', plot_mass_mixing_lines = True)
+        plot_survival_parameter_space_regions_nointerpolation(survival_dv_fraction, title='HNL survival (DV cut)', savename='survival_dv', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
         
         if survival_plots_analysis:
             # DV cut heatmap from analysis (slow)
             survival_dv_analytic = compute_analytic_survival(lorentz_factors)
-            plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic, title='HNL survival (analytic (2) DV cut)', savename='survival_dv_analytic_2', plot_mass_mixing_lines = True)
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic, title='HNL survival (analytic (2) DV cut)', savename='survival_dv_analytic_2', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
             
             # Difference between data and analytic DV cut survival heatmap
             survival_dv_delta = survival_dv_fraction - survival_dv_analytic
-            plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta, title='HNL DV cut survival difference (data method - analytic (2) method)', savename='survival_dv_delta_2', plot_mass_mixing_lines = True)
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta, title='HNL DV cut survival difference (data method - analytic (2) method)', savename='survival_dv_delta_2', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
             
             # DV cut heatmap from analysis (slow)
             survival_dv_analytic_avg = compute_analytic_survival_averaged(average_lorentz_factors)
-            plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic_avg, title='HNL survival (analytic (1) DV cut)', savename='survival_dv_analytic_1', plot_mass_mixing_lines = True)
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_analytic_avg, title='HNL survival (analytic (1) DV cut)', savename='survival_dv_analytic_1', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
             
 
             # Difference between data and analytic DV cut survival heatmap
             survival_dv_delta_avg = survival_dv_fraction - survival_dv_analytic_avg
-            plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_avg, title='HNL DV cut survival difference (data method - analytic (1) method)', savename='survival_dv_delta_1', plot_mass_mixing_lines = True)
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_avg, title='HNL DV cut survival difference (data method - analytic (1) method)', savename='survival_dv_delta_1', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
             
 
             # Difference between analytic estimation and averaged analytic estimation
             survival_dv_delta_analysis = survival_dv_analytic - survival_dv_analytic_avg
-            plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_analysis, title='HNL analytic DV cut survival difference (2) - (1)', savename='survival_dv_delta_2-1', plot_mass_mixing_lines = True)
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_delta_analysis, title='HNL analytic DV cut survival difference (2) - (1)', savename='survival_dv_delta_2-1', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
 
             a = False
             if a: 

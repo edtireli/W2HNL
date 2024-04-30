@@ -20,5 +20,8 @@ def data_loading():
     elif data_type == 'HEPMC':
         momenta = HEPMC_data_processing(data_path)
 
+    elif data_type == 'ROOT':
+        momenta = root_data_processing(data_path)    
+
     return momenta
 

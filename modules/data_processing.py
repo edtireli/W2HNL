@@ -40,6 +40,11 @@ def invmass_rdv_efficiency(r_dv, m_dv):
     y2 = 3
     return int(m_dv >= y1 and m_dv >= y2)
 
+def invmass_rdv_efficiency_ee(r_dv, m_dv):
+    y1 = (-7/110) * r_dv * nat_to_m() * 1e3 + 180/11
+    y2 = 2
+    return int(m_dv >= y1 and m_dv >= y2)
+
 
 class ParticleBatch:
     def __init__(self, momenta):
@@ -393,8 +398,10 @@ class ParticleBatch:
         invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, np.diag([1, -1, -1, -1])), p_sum))
         
         # Apply non-trivial invariant mass cut based on rd_lab_norm (distance) and invariant_masses
-        survival_mask_invmass_nt = np.array([invmass_rdv_efficiency(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
-
+        if pid_displaced_lepton == 13:
+            survival_mask_invmass_nt = np.array([invmass_rdv_efficiency(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
+        elif pid_displaced_lepton == 11:
+            survival_mask_invmass_nt = np.array([invmass_rdv_efficiency_ee(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
         return survival_mask_invmass_nt
     
     def __deepcopy__(self, memo):

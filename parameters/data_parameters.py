@@ -2,11 +2,11 @@ data_folder = 'w2tau-ee' # Folder name containing MadGraph data
 #data_folder = 'w2tau-muchmoremass'
 prompt_lepton_flavour = 3 # 1 = electron, 2 = muon, 3 = tau
 
-#data_type = 'HEPMC' # Either "HEPMC" or "LHE" format
-data_type = 'LHE' # Either "HEPMC" or "LHE" format
+data_type = 'ROOT' # Either "HEPMC" or "LHE" or "ROOT" format
+#data_type = 'LHE' # Either "HEPMC" or "LHE" or "ROOT" format
 
-#mass_hnl = [i*0.5 for i in range(2,21)] # HNL masses from data in GeV
 mass_hnl = [i*0.25 for i in range(2,41)] # HNL masses from data in GeV
+#mass_hnl = [i*0.1 for i in range(2,101)] # HNL masses from data in GeV
 
 flavour_hnl = 3 # 1=e, 2=mu, 3=tau
 batch_size = 25000 # Number of events generated per run (mass) in MadGraph

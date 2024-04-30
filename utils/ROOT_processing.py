@@ -5,6 +5,8 @@ import os
 from glob import glob
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from parameters.data_parameters import *
+from parameters.experimental_parameters import *
 
 # Particle Data and Event Classes
 class Particle:
@@ -26,15 +28,17 @@ class ROOTReader:
     def __init__(self, folder_path):
         self.folder_path = folder_path
         self.files = glob(os.path.join(folder_path, '*.root'))
+        self.file_iter = iter(self.files)
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if not self.files:
+        try:
+            file_path = next(self.file_iter)
+            return self.process_file(file_path)
+        except StopIteration:
             raise StopIteration
-        file_path = self.files.pop(0)
-        return self.process_file(file_path)
 
     def process_file(self, file_path):
         with uproot.open(file_path)["Delphes;1"]["Particle"] as particles:
@@ -60,19 +64,22 @@ def process_event(event):
         'neutrino': []
     }
     for particle in event.particles:
-        pid = particle.pdgid
+        pid = abs(particle.pdgid)
         vector = [particle.energy, particle.px, particle.py, particle.pz]
-        if abs(pid) == 24:
+        if pid == 24:
             data['W_boson'].append(vector)
-        elif abs(pid) == 9900016:
+        elif pid == 9900016:
             data['HNL'].append(vector)
-        # Add similar conditions for other particle types as defined
+        # Implement conditions for other particle types as defined in your project
     return data
 
 # Main Processing Loop
-def root_data_processing(folder_path):
-    reader = ROOTReader(folder_path)
-    all_data = {
+def root_data_processing(folder):
+    event_dirs = sorted(glob(os.path.join(folder, 'run_*')), key=lambda x: int(x.split('_')[-1]))
+    total_events_to_process = min(len(event_dirs), len(mass_hnl)) * prompt_length
+    progress_bar = tqdm(total=total_events_to_process, desc='Processing ROOT Files')
+
+    data_structure = {
         'W_boson': [],
         'HNL': [],
         'prompt_lepton': [],
@@ -80,11 +87,18 @@ def root_data_processing(folder_path):
         'dilepton_plus': [],
         'neutrino': []
     }
-    for event in tqdm(reader, desc='Processing ROOT Files'):
-        event_data = process_event(event)
-        for key in all_data:
-            all_data[key].extend(event_data[key])
 
-    return (all_data['W_boson'], all_data['HNL'], all_data['prompt_lepton'], 
-            all_data['dilepton_minus'], all_data['dilepton_plus'], all_data['neutrino'])
+    for dir_path in event_dirs:
+        reader = ROOTReader(dir_path)
+        for event_index, event in enumerate(reader):
+            if event_index >= prompt_length:
+                break
+            event_data = process_event(event)
+            for key in data_structure:
+                data_structure[key].extend(event_data[key])
+            progress_bar.update(1)
 
+    progress_bar.close()
+
+    return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
+            data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])

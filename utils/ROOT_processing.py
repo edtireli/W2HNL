@@ -23,6 +23,7 @@ pid_codes = {
 }
 
 def root_data_processing(data_folder):
+    print(data_folder)
     # Prepare to collect the data for each particle type
     particle_data = {key: [] for key in pid_codes}
 

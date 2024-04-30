@@ -70,7 +70,7 @@ def process_event(event):
     return data
 
 # Main Processing Loop
-def process_root_files(folder_path):
+def root_data_processing(folder_path):
     reader = ROOTReader(folder_path)
     all_data = {
         'W_boson': [],
@@ -88,6 +88,3 @@ def process_root_files(folder_path):
     return (all_data['W_boson'], all_data['HNL'], all_data['prompt_lepton'], 
             all_data['dilepton_minus'], all_data['dilepton_plus'], all_data['neutrino'])
 
-# Example Usage
-folder_path = '/path/to/your/root/files'
-results = process_root_files(folder_path)

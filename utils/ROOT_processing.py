@@ -76,7 +76,7 @@ def process_event(event):
 # Main Processing Loop
 def root_data_processing(folder):
     event_dirs = sorted(glob(os.path.join(folder, 'run_*')), key=lambda x: int(x.split('_')[-1]))
-    total_events_to_process = min(len(event_dirs), len(mass_hnl)) * prompt_length
+    total_events_to_process = min(len(event_dirs), len(mass_hnl)) * batch_size
     progress_bar = tqdm(total=total_events_to_process, desc='Processing ROOT Files')
 
     data_structure = {
@@ -91,7 +91,7 @@ def root_data_processing(folder):
     for dir_path in event_dirs:
         reader = ROOTReader(dir_path)
         for event_index, event in enumerate(reader):
-            if event_index >= prompt_length:
+            if event_index >= batch_size:
                 break
             event_data = process_event(event)
             for key in data_structure:

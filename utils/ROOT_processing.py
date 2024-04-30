@@ -8,75 +8,56 @@ import matplotlib.pyplot as plt
 from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 
-class Particle:
-    def __init__(self, pid, energy, px, py, pz):
-        self.pid = pid
-        self.energy = energy
-        self.px = px
-        self.py = py
-        self.pz = pz
+import uproot
+import awkward as ak
+import numpy as np
+import matplotlib.pyplot as plt
 
-class Event:
-    def __init__(self):
-        self.particles = []
+pid_codes = {
+    "W_boson": pid_boson,
+    "HNL": pid_HNL,
+    "prompt_lepton": pid_prompt_lepton,
+    "dilepton_minus": pid_displaced_lepton,  # Assuming the negative charge
+    "dilepton_plus": pid_displaced_lepton,    # Assuming the positive charge
+    "neutrino": pid_neutrino,
+}
 
-    def add_particle(self, particle):
-        self.particles.append(particle)
+def root_data_processing(data_folder):
+    # Prepare to collect the data for each particle type
+    particle_data = {key: [] for key in pid_codes}
 
-def process_event(event):
-    data = {
-        'W_boson': [],
-        'HNL': [],
-        'prompt_lepton': [],
-        'dilepton_minus': [],
-        'dilepton_plus': [],
-        'neutrino': []
-    }
-    for particle in event.particles:
-        pid = particle.pid
-        vector = [particle.energy, particle.px, particle.py, particle.pz]
-        if abs(pid) == abs(pid_boson):
-            data['W_boson'].append(vector)
-        elif abs(pid) == pid_HNL:
-            data['HNL'].append(vector)
-        elif abs(pid) == pid_prompt_lepton:
-            data['prompt_lepton'].append(vector)
-        elif abs(pid) == pid_displaced_lepton:
-            if pid > 0:
-                data['dilepton_plus'].append(vector)
-            else:
-                data['dilepton_minus'].append(vector)
-        elif abs(pid) == pid_neutrino:
-            data['neutrino'].append(vector)
-    return data
+    # Create a path pattern to match all relevant ROOT files
+    path_pattern = os.path.join(data_folder, "run_*/unweighted_events.root")
+    root_files = glob(path_pattern)
 
-def root_data_processing(main_folder_path):
-    mass_dirs = sorted(glob(os.path.join(main_folder_path, 'run_*')))
-    mass_data = {key: [] for key in ['W_boson', 'HNL', 'prompt_lepton', 'dilepton_minus', 'dilepton_plus', 'neutrino']}
-
-    for run_dir in mass_dirs:
-        file_path = os.path.join(run_dir, 'unweighted_events.root')
-        if not os.path.exists(file_path):
-            print(f"File not found: {file_path}")
-            continue
-
+    # Process each file
+    for file_path in tqdm(root_files):
         with uproot.open(file_path)["Delphes;1"]["Particle"] as particles:
-            pids = particles["Particle.PID"].array(library="np")
-            px = particles["Particle.Px"].array(library="np")
-            py = particles["Particle.Py"].array(library="np")
-            pz = particles["Particle.Pz"].array(library="np")
-            energy = particles["Particle.E"].array(library="np")
+            pids = particles["Particle.PID"].array(library="ak")
+            px = particles["Particle.Px"].array(library="ak")
+            py = particles["Particle.Py"].array(library="ak")
+            pz = particles["Particle.Pz"].array(library="ak")
+            energy = particles["Particle.E"].array(library="ak")
 
-            event = Event()
-            for i in range(len(pids)):
-                particle = Particle(pids[i], energy[i], px[i], py[i], pz[i])
-                event.add_particle(particle)
+            # Process each particle type
+            for name, pid in pid_codes.items():
+                indices = ak.where(abs(pids) == pid)
+                momentum = ak.zip({
+                    "E": energy[indices],
+                    "px": px[indices],
+                    "py": py[indices],
+                    "pz": pz[indices]
+                })
+                particle_data[name].append(momentum)
 
-            event_data = process_event(event)
-            for key in mass_data:
-                mass_data[key].append(event_data[key])
-
-    for key in mass_data:
-        mass_data[key] = np.array(mass_data[key])  # Convert each list to numpy array for better handling
-
-    return mass_data
+    # Concatenate the data across all files
+    concatenated_data = {key: ak.concatenate(values) for key, values in particle_data.items()}
+    
+    return (
+        concatenated_data['W_boson'],
+        concatenated_data['HNL'],
+        concatenated_data['prompt_lepton'],
+        concatenated_data['dilepton_minus'],
+        concatenated_data['dilepton_plus'],
+        concatenated_data['neutrino']
+    )         

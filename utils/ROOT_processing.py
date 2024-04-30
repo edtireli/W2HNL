@@ -92,6 +92,7 @@ def root_data_processing(folder_path):
         for key in data_structure:
             data_structure[key].extend(event_data[key])
 
+    print(np.shape(data_structure['W_boson']))
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
             data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
 

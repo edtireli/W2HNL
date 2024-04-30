@@ -66,18 +66,18 @@ def process_event(event):
         vector = [particle.energy, particle.px, particle.py, particle.pz]
         # Debugging output to verify PID filtering
         print(f"Processing PID: {pid}")
-        if abs(pid) == abs(PID_BOSON):
+        if abs(pid) == abs(pid_boson):
             data['W_boson'].append(vector)
-        elif abs(pid) == PID_HNL:
+        elif abs(pid) == pid_HNL:
             data['HNL'].append(vector)
-        elif abs(pid) == PID_PROMPT_LEPTON:
+        elif abs(pid) == pid_prompt_lepton:
             data['prompt_lepton'].append(vector)
-        elif abs(pid) == PID_DISPLACED_LEPTON:
+        elif abs(pid) == pid_displaced_lepton:
             if pid > 0:
                 data['dilepton_plus'].append(vector)
             else:
                 data['dilepton_minus'].append(vector)
-        elif abs(pid) == PID_NEUTRINO:
+        elif abs(pid) == pid_neutrino:
             data['neutrino'].append(vector)
 
     return data

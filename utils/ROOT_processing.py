@@ -29,6 +29,11 @@ def root_data_processing(data_folder):
     # Create a path pattern to match all relevant ROOT files
     path_pattern = os.path.join(data_folder, "run_*/unweighted_events.root")
     root_files = glob(path_pattern)
+    
+    # Debug: print the files found
+    print("Files found:", root_files)
+    if not root_files:
+        print("No files found, check the path pattern and directory structure.")
 
     # Process each file
     for file_path in tqdm(root_files):
@@ -42,16 +47,17 @@ def root_data_processing(data_folder):
             # Process each particle type
             for name, pid in pid_codes.items():
                 indices = ak.where(abs(pids) == pid)
-                momentum = ak.zip({
-                    "E": energy[indices],
-                    "px": px[indices],
-                    "py": py[indices],
-                    "pz": pz[indices]
-                })
-                particle_data[name].append(momentum)
+                if len(indices[0]) > 0:  # Ensure there are entries
+                    momentum = ak.zip({
+                        "E": energy[indices],
+                        "px": px[indices],
+                        "py": py[indices],
+                        "pz": pz[indices]
+                    })
+                    particle_data[name].append(momentum)
 
-    # Concatenate the data across all files
-    concatenated_data = {key: ak.concatenate(values) for key, values in particle_data.items()}
+    # Concatenate the data across all files, avoiding empty concatenation
+    concatenated_data = {key: ak.concatenate(values) if values else ak.Array([]) for key, values in particle_data.items()}
     
     return (
         concatenated_data['W_boson'],
@@ -60,4 +66,4 @@ def root_data_processing(data_folder):
         concatenated_data['dilepton_minus'],
         concatenated_data['dilepton_plus'],
         concatenated_data['neutrino']
-    )         
+    )

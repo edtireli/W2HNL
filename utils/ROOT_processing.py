@@ -27,6 +27,8 @@ class ROOTReader:
     def __init__(self, folder_path):
         self.folder_path = folder_path
         self.files = glob(os.path.join(folder_path, '*.root'))
+        if not self.files:
+            raise ValueError("No ROOT files found in the specified directory.")
         self.file_iter = iter(self.files)
 
     def __iter__(self):
@@ -38,11 +40,11 @@ class ROOTReader:
 
     def process_file(self, file_path):
         with uproot.open(file_path)["Delphes;1"]["Particle"] as particles:
-            pids = particles["Particle.PID"].array(library="ak")
-            px = particles["Particle.Px"].array(library="ak")
-            py = particles["Particle.Py"].array(library="ak")
-            pz = particles["Particle.Pz"].array(library="ak")
-            energy = particles["Particle.E"].array(library="ak")
+            pids = particles["Particle.PID"].array(library="np")
+            px = particles["Particle.Px"].array(library="np")
+            py = particles["Particle.Py"].array(library="np")
+            pz = particles["Particle.Pz"].array(library="np")
+            energy = particles["Particle.E"].array(library="np")
 
             event = Event()
             for i in range(len(pids)):
@@ -62,19 +64,22 @@ def process_event(event):
     for particle in event.particles:
         pid = particle.pid
         vector = [particle.energy, particle.px, particle.py, particle.pz]
-        if abs(pid) == abs(pid_boson):  # W boson
+        # Debugging output to verify PID filtering
+        print(f"Processing PID: {pid}")
+        if abs(pid) == abs(PID_BOSON):
             data['W_boson'].append(vector)
-        elif abs(pid) == pid_HNL:  # HNL
+        elif abs(pid) == PID_HNL:
             data['HNL'].append(vector)
-        elif abs(pid) == pid_prompt_lepton:  # Prompt lepton
+        elif abs(pid) == PID_PROMPT_LEPTON:
             data['prompt_lepton'].append(vector)
-        elif abs(pid) == pid_displaced_lepton:  # Displaced lepton
+        elif abs(pid) == PID_DISPLACED_LEPTON:
             if pid > 0:
                 data['dilepton_plus'].append(vector)
             else:
                 data['dilepton_minus'].append(vector)
-        elif abs(pid) == pid_neutrino:  # Neutrino
+        elif abs(pid) == PID_NEUTRINO:
             data['neutrino'].append(vector)
+
     return data
 
 def root_data_processing(folder_path):
@@ -87,15 +92,17 @@ def root_data_processing(folder_path):
         'dilepton_plus': [],
         'neutrino': []
     }
+    total_events_processed = 0
     for event in tqdm(reader, desc='Processing ROOT Files'):
         event_data = process_event(event)
         for key in data_structure:
             data_structure[key].extend(event_data[key])
+        total_events_processed += 1
 
-    # Diagnostic print statements to check if arrays are populated
-    for key in data_structure:
-        print(f"{key} count: {len(data_structure[key])}")
-
+    # Final diagnostic to confirm data loading
+    print(f"Total events processed: {total_events_processed}")
+    for key, values in data_structure.items():
+        print(f"Total {key}: {len(values)}")
+        
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
             data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
-

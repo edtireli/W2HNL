@@ -79,7 +79,7 @@ def process_event(event):
 
 def root_data_processing(folder_path):
     reader = ROOTReader(folder_path)
-    all_data = {
+    data_structure = {
         'W_boson': [],
         'HNL': [],
         'prompt_lepton': [],
@@ -89,7 +89,9 @@ def root_data_processing(folder_path):
     }
     for event in tqdm(reader, desc='Processing ROOT Files'):
         event_data = process_event(event)
-        for key in all_data:
-            all_data[key].extend(event_data[key])
+        for key in data_structure:
+            data_structure[key].extend(event_data[key])
 
-    return all_data
+    return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
+            data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
+

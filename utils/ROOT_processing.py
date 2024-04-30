@@ -23,12 +23,11 @@ pid_codes = {
 }
 
 def root_data_processing(data_folder):
-    print(data_folder)
     # Prepare to collect the data for each particle type
     particle_data = {key: [] for key in pid_codes}
 
     # Create a path pattern to match all relevant ROOT files
-    path_pattern = os.path.join(data_folder, "run_*/unweighted_events.root")
+    path_pattern = os.path.join(data_folder, "Events/run_*/unweighted_events.root")
     root_files = glob(path_pattern)
     
     # Debug: print the files found

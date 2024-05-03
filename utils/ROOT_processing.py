@@ -68,7 +68,8 @@ def root_data_processing(base_folder):
         
         print("Converting lists to arrays...")
         for key in data_structure:
-            data_structure[key] = ak.from_iter(data_structure[key])
+            # Flatten awkward arrays and convert to numpy
+            data_structure[key] = ak.flatten(data_structure[key], axis=None).to_numpy()
         
         print("Processing complete.")
         return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],

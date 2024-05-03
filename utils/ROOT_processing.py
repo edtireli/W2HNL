@@ -63,16 +63,19 @@ def root_data_processing(base_folder):
                     
                     temp_data[particle_type].append(four_momenta)
                 
+                # Store all four-momenta data for this run into the main data structure
                 for key in data_structure:
                     data_structure[key].append(temp_data[key])
         
-        print("Converting lists to arrays...")
+        # Convert lists to arrays for better handling in downstream analysis
+        print("Converting lists to structured arrays...")
         for key in data_structure:
-            # Flatten awkward arrays and convert to numpy
-            data_structure[key] = ak.flatten(data_structure[key], axis=None).to_numpy()
+            # Convert each run's data into a single array per run, maintaining separation between runs
+            structured_data = [ak.to_numpy(ak.concatenate(run_data)) for run_data in data_structure[key]]
+            data_structure[key] = np.array(structured_data)
         
         print("Processing complete.")
-        print(np.shape(data_structure['W_boson']))
+        print({key: np.shape(data_structure[key]) for key in data_structure})  # Print shapes to verify structure
         return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
                 data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
     

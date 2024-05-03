@@ -76,10 +76,8 @@ def root_data_processing(base_folder):
         
         print("Processing complete.")
         print({key: np.shape(data_structure[key]) for key in data_structure})  # Print shapes to verify structure
-        print(data_structure['HNL'][0,0])
-        print(data_structure['prompt_lepton'][0,0])
-        return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
-                data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
+        return (np.array(data_structure['W_boson']), np.array(data_structure['HNL']), np.array(data_structure['prompt_lepton']),
+                np.array(data_structure['dilepton_minus']), np.array(data_structure['dilepton_plus']), np.array(data_structure['neutrino']))
     
     except Exception as e:
         print(f"An error occurred: {e}")

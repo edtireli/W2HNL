@@ -1,71 +1,77 @@
+import os
 import uproot
 import awkward as ak
 import numpy as np
-import os
-from glob import glob
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 
-import uproot
-import awkward as ak
-import numpy as np
-import matplotlib.pyplot as plt
-
-pid_codes = {
-    "W_boson": pid_boson,
-    "HNL": pid_HNL,
-    "prompt_lepton": pid_prompt_lepton,
-    "dilepton_minus": pid_displaced_lepton,  # Assuming the negative charge
-    "dilepton_plus": pid_displaced_lepton,    # Assuming the positive charge
-    "neutrino": pid_neutrino,
-}
-
-def root_data_processing(data_folder):
-    # Prepare to collect the data for each particle type
-    particle_data = {key: [] for key in pid_codes}
-
-    # Create a path pattern to match all relevant ROOT files
-    path_pattern = os.path.join(data_folder, "Events/run_*/unweighted_events.root")
-    root_files = glob(path_pattern)
+def root_data_processing(base_folder):
+    # Initialize the data structure with nested lists
+    data_structure = {
+        'W_boson': [],
+        'HNL': [],
+        'prompt_lepton': [],
+        'dilepton_minus': [],
+        'dilepton_plus': [],
+        'neutrino': []
+    }
     
-    # Debug: print the files found
-    print("Files found:", root_files)
-    if not root_files:
-        print("No files found, check the path pattern and directory structure.")
-
-    # Process each file
-    for file_path in tqdm(root_files):
+    # Iterate over each run folder
+    for i in range(1, len(mass_hnl) + 1):
+        folder_name = f"{base_folder}/Events/run_{i:02d}"
+        file_path = os.path.join(folder_name, "unweighted_events.root")
+        
+        # Open the ROOT file and access the 'Particle' tree
         with uproot.open(file_path)["Delphes;1"]["Particle"] as particles:
+            # Load PID and momentum data
             pids = particles["Particle.PID"].array(library="ak")
             px = particles["Particle.Px"].array(library="ak")
             py = particles["Particle.Py"].array(library="ak")
             pz = particles["Particle.Pz"].array(library="ak")
             energy = particles["Particle.E"].array(library="ak")
-
+            
+            # Temporary storage for the current run
+            temp_data = {
+                'W_boson': [],
+                'HNL': [],
+                'prompt_lepton': [],
+                'dilepton_minus': [],
+                'dilepton_plus': [],
+                'neutrino': []
+            }
+            
             # Process each particle type
-            for name, pid in pid_codes.items():
-                indices = ak.where(abs(pids) == pid)
-                if len(indices[0]) > 0:  # Ensure there are entries
-                    momentum = ak.zip({
-                        "E": energy[indices],
-                        "px": px[indices],
-                        "py": py[indices],
-                        "pz": pz[indices]
-                    })
-                    particle_data[name].append(momentum)
+            for particle_type, pid in [('W_boson', pid_boson), ('HNL', pid_HNL), 
+                                       ('prompt_lepton', pid_prompt_lepton), 
+                                       ('dilepton_minus', pid_displaced_lepton),
+                                       ('dilepton_plus', pid_displaced_lepton), 
+                                       ('neutrino', pid_neutrino)]:
+                indices = ak.where(abs(pids) == abs(pid))
+                four_momenta = ak.zip({
+                    "E": energy[indices],
+                    "px": px[indices],
+                    "py": py[indices],
+                    "pz": pz[indices]
+                })
+                
+                # For dileptons, differentiate between plus and minus charges
+                if 'dilepton' in particle_type:
+                    charge_indices = ak.where(pids[indices] == pid)
+                    if 'minus' in particle_type:
+                        charge_indices = ak.where(pids[indices] == -pid)
+                    four_momenta = four_momenta[charge_indices]
+                
+                # Store four-momenta for the current run
+                temp_data[particle_type].append(four_momenta)
+            
+            # Append the temporary data to the main data structure
+            for key in data_structure:
+                data_structure[key].append(temp_data[key])
+    
+    # Convert lists to arrays for better handling in downstream analysis
+    for key in data_structure:
+        data_structure[key] = ak.from_iter(data_structure[key])
+    
+    return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
+            data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
 
-    # Concatenate the data across all files, avoiding empty concatenation
-    concatenated_data = {key: ak.concatenate(values) if values else ak.Array([]) for key, values in particle_data.items()}
-    
-    print(np.shape(concatenated_data['W_boson']))
-    
-    return (
-        concatenated_data['W_boson'],
-        concatenated_data['HNL'],
-        concatenated_data['prompt_lepton'],
-        concatenated_data['dilepton_minus'],
-        concatenated_data['dilepton_plus'],
-        concatenated_data['neutrino']
-    )

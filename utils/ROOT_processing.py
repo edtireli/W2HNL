@@ -72,6 +72,7 @@ def root_data_processing(base_folder):
             data_structure[key] = ak.flatten(data_structure[key], axis=None).to_numpy()
         
         print("Processing complete.")
+        print(np.shape(data_structure['W_boson']))
         return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
                 data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
     

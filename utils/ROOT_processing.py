@@ -2,6 +2,7 @@ import os
 import uproot
 import awkward as ak
 import numpy as np
+from tqdm import tqdm
 from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 
@@ -16,8 +17,8 @@ def root_data_processing(base_folder):
         'neutrino': []
     }
     
-    # Iterate over each run folder
-    for i in range(1, len(mass_hnl) + 1):
+    # Iterate over each run folder with tqdm progress bar
+    for i in tqdm(range(1, len(mass_hnl) + 1), desc="Processing runs"):
         folder_name = f"{base_folder}/Events/run_{i:02d}"
         file_path = os.path.join(folder_name, "unweighted_events.root")
         
@@ -74,4 +75,3 @@ def root_data_processing(base_folder):
     
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
             data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
-

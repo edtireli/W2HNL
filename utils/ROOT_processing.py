@@ -36,7 +36,14 @@ def root_data_processing(base_folder):
                                        ('dilepton_minus', pid_displaced_lepton),
                                        ('dilepton_plus', pid_displaced_lepton), 
                                        ('neutrino', pid_neutrino)]:
-                indices = ak.where(abs(pids) == abs(pid))
+                if 'dilepton' in particle_type:
+                    if 'minus' in particle_type:
+                        indices = ak.where(pids == pid)
+                    else:
+                        indices = ak.where(pids == -pid) 
+                else:
+                    indices = ak.where(abs(pids) == abs(pid)) 
+
                 four_momenta = {
                     "E": energy[indices],
                     "px": px[indices],
@@ -52,5 +59,8 @@ def root_data_processing(base_folder):
                 else:
                     continue
 
+    print(data_structure['dilepton_minus'][0,0])
+    print(data_structure['dilepton_plus'][0,0])
+    print({k: np.shape(data_structure[k]) for k in data_structure})  # Debug output to verify dimensions
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
             data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])

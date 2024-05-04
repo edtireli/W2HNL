@@ -52,7 +52,5 @@ def root_data_processing(base_folder):
                 else:
                     continue
 
-    print("Processing complete.")
-    print({k: np.shape(data_structure[k]) for k in data_structure})  # Debug output to verify dimensions
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
             data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])

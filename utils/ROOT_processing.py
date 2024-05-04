@@ -7,39 +7,29 @@ from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 
 def root_data_processing(base_folder):
-    # Initialize the data structure with nested lists
+    # Initialize the data structure with an array of zeros for each particle type
     data_structure = {
-        'W_boson': [],
-        'HNL': [],
-        'prompt_lepton': [],
-        'dilepton_minus': [],
-        'dilepton_plus': [],
-        'neutrino': []
+        'W_boson': np.zeros((len(mass_hnl), batch_size, 4)),
+        'HNL': np.zeros((len(mass_hnl), batch_size, 4)),
+        'prompt_lepton': np.zeros((len(mass_hnl), batch_size, 4)),
+        'dilepton_minus': np.zeros((len(mass_hnl), batch_size, 4)),
+        'dilepton_plus': np.zeros((len(mass_hnl), batch_size, 4)),
+        'neutrino': np.zeros((len(mass_hnl), batch_size, 4))
     }
 
-    # Iterate over each run folder with tqdm progress bar
-    for i in tqdm(range(1, len(mass_hnl) + 1), desc="Processing runs"):
+    # Iterate over each run folder
+    for i in tqdm(range(1, len(mass_hnl) + 1), desc="Processing ROOT files"):
         folder_name = f"{base_folder}/Events/run_{i:02d}"
         file_path = os.path.join(folder_name, "unweighted_events.root")
 
         with uproot.open(file_path)["Delphes;1"]["Particle"] as particles:
-            # Load PID and momentum data
+            # Load particle data
             pids = particles["Particle.PID"].array(library="ak")
             px = particles["Particle.Px"].array(library="ak")
             py = particles["Particle.Py"].array(library="ak")
             pz = particles["Particle.Pz"].array(library="ak")
             energy = particles["Particle.E"].array(library="ak")
-            
-            # Temporary storage for the current run
-            temp_data = {
-                'W_boson': [],
-                'HNL': [],
-                'prompt_lepton': [],
-                'dilepton_minus': [],
-                'dilepton_plus': [],
-                'neutrino': []
-            }
-            
+
             # Process each particle type
             for particle_type, pid in [('W_boson', pid_boson), ('HNL', pid_HNL), 
                                        ('prompt_lepton', pid_prompt_lepton), 
@@ -47,31 +37,22 @@ def root_data_processing(base_folder):
                                        ('dilepton_plus', pid_displaced_lepton), 
                                        ('neutrino', pid_neutrino)]:
                 indices = ak.where(abs(pids) == abs(pid))
-                four_momenta = ak.zip({
+                four_momenta = {
                     "E": energy[indices],
                     "px": px[indices],
                     "py": py[indices],
                     "pz": pz[indices]
-                })
-                
-                if 'dilepton' in particle_type:
-                    charge_indices = ak.where(pids[indices] == pid)
-                    if 'minus' in particle_type:
-                        charge_indices = ak.where(pids[indices] == -pid)
-                    four_momenta = four_momenta[charge_indices]
-                
-                # Store four-momenta for the current run
-                temp_data[particle_type].append(ak.to_numpy(four_momenta))
+                }
 
-            # Append the processed data to the main data structure
-            for key in data_structure:
-                data_structure[key].append(temp_data[key])
-
-    # Convert lists to arrays for better handling in downstream analysis
-    for key in data_structure:
-        # Convert each run's data into a single array per run, maintaining separation between runs
-        data_structure[key] = np.array([np.concatenate(run_data) for run_data in data_structure[key] if run_data])
+                # Create a numpy array from the four momentum components
+                if ak.count_nonzero(indices) > 0:
+                    momenta_array = np.stack([ak.to_numpy(four_momenta[key]) for key in ['E', 'px', 'py', 'pz']], axis=-1)
+                    n_events = min(momenta_array.shape[0], batch_size)
+                    data_structure[particle_type][i-1, :n_events, :] = momenta_array[:n_events]
+                else:
+                    continue
 
     print("Processing complete.")
+    print({k: np.shape(data_structure[k]) for k in data_structure})  # Debug output to verify dimensions
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
             data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])

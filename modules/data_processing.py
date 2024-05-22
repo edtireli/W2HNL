@@ -490,13 +490,13 @@ def survival_dv(momentum=1, rng_type=1):
             survival_bool_dv[i, j, :] = survival_mask_dv
 
             if not large_data:
-                rd_labs[i, j, :, :] = rd_lab  # Store the decay vertices
+                rd_labs[i, j] = rd_lab  # Store the decay vertices
                 lifetimes_rest[i, j, :] = td
                 lorentz_factors[i, j, :] = g_lab
 
             # Save each array separately, specifying 'float16' where appropriate.
             #save_cut_array(survival_bool_dv, f"{array_name_base}_survival_bool_dv")
-            #save_cut_array((rd_labs, 'float16'), f"{array_name_base}_rd_labs")  # Saving as float16
+    save_cut_array(rd_labs, f"{array_name_base}_rd_labs")
             #save_cut_array((lifetimes_rest, 'float16'), f"{array_name_base}_lifetimes_rest")  # Saving as float16
             #save_cut_array((lorentz_factors, 'float16'), f"{array_name_base}_lorentz_factors")  # Saving as float16
     if not large_data:
@@ -625,20 +625,8 @@ def save_cut_array(array, name=''):
     os.makedirs(data_path, exist_ok=True)
     array_path = os.path.join(data_path, f'{name}.npz')
     
-    # Prepare arrays for saving, checking if any needs to be saved as float16
-    arrays_to_save = {}
-    for i, arr in enumerate(array):
-        array_name = f'arr_{i}'
-        if isinstance(arr, tuple):
-            data, data_type = arr
-            if data_type == 'float16':
-                arrays_to_save[array_name] = data.astype(np.float16)
-            else:
-                arrays_to_save[array_name] = data
-        else:
-            arrays_to_save[array_name] = arr
+    np.savez_compressed(array_path, array=array)
     
-    np.savez_compressed(array_path, **arrays_to_save)
 
 def load_cut_array(name=''):
     current_directory = os.getcwd()

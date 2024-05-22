@@ -253,9 +253,6 @@ def LHE_data_processing(folder, prompt_length, prompt_lepton_flavour):
         data_structure[key] = np.stack(flat_data) if flat_data else np.empty((0, prompt_length, 4))
 
 
-    print(np.shape(data_structure['W_boson']))
-    print(data_structure['W_boson'][2,0])
-    print(type(data_structure['W_boson']))
     return (data_structure['W_boson'], data_structure['HNL'], data_structure['prompt_lepton'],
             data_structure['dilepton_minus'], data_structure['dilepton_plus'], data_structure['neutrino'])
 

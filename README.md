@@ -16,3 +16,11 @@ This Python program is developed for signal estimation of feebly interacting mas
 git clone https://github.com/edtireli/W2HNL.git
 cd W2HNL
 pip install -r requirements.txt
+```
+
+## Outputs
+Some important outputs are survival as well as production plots on the BSM models parameter space, in this case mass and mixing. 
+
+![survival_dv](https://github.com/edtireli/W2HNL/assets/129996957/1430dc6c-0550-4f4c-a553-9065e0ac5930)
+
+![hnl_production_allcuts](https://github.com/edtireli/W2HNL/assets/129996957/2c39af58-0525-44d7-a473-e80bbc35709d)

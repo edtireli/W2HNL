@@ -36,13 +36,26 @@ def unit_converter(initial_unit):
     return number[0] / conversion_factors[unit[0]]
 
 def invmass_rdv_efficiency(r_dv, m_dv):
-    y1 = (-7/110) * r_dv * nat_to_m() * 1e3 + 180/11
-    y2 = 3
+    r_dv = r_dv * light_speed() * 1e3 # GeV to m
+    c1 = -20
+    c2 = 3
+    if r_dv <= 50:
+        y1 = 10
+    else:
+        y1 = ((c1 - 10) / (700 - 50)) * (r_dv - 50) + 10
+    y2 = c2
     return int(m_dv >= y1 and m_dv >= y2)
 
+
 def invmass_rdv_efficiency_ee(r_dv, m_dv):
-    y1 = (-7/110) * r_dv * nat_to_m() * 1e3 + 180/11
-    y2 = 2
+    r_dv = r_dv * light_speed() * 1e3 # GeV to m
+    c1 =  -96 # defined from external script
+    c2 =   1.75 # defined from external script, lower m_dv limit for large r_dv
+    if r_dv <= 50:
+        y1 = 10
+    else:
+        y1 = ((c1 - 10) / (700 - 50)) * (r_dv - 50) + 10
+    y2 = c2
     return int(m_dv >= y1 and m_dv >= y2)
 
 
@@ -395,13 +408,21 @@ class ParticleBatch:
         p_minus = self.momenta_dict['displaced_minus'][self.selected_mass_index]
         p_plus = self.momenta_dict['displaced_plus'][self.selected_mass_index]
         p_sum = p_minus + p_plus
-        invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, np.diag([1, -1, -1, -1])), p_sum))
+        
+        with np.errstate(invalid='ignore'):
+            invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, np.diag([1, -1, -1, -1])), p_sum))
+    
+
         
         # Apply non-trivial invariant mass cut based on rd_lab_norm (distance) and invariant_masses
         if pid_displaced_lepton == 13:
             survival_mask_invmass_nt = np.array([invmass_rdv_efficiency(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
         elif pid_displaced_lepton == 11:
             survival_mask_invmass_nt = np.array([invmass_rdv_efficiency_ee(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
+        
+        # Reshape the result to match the expected dimensions
+        survival_mask_invmass_nt = survival_mask_invmass_nt.reshape((self.batch_size,))
+        
         return survival_mask_invmass_nt
     
     def __deepcopy__(self, memo):
@@ -494,11 +515,13 @@ def survival_dv(momentum=1, rng_type=1):
                 lifetimes_rest[i, j, :] = td
                 lorentz_factors[i, j, :] = g_lab
 
-            # Save each array separately, specifying 'float16' where appropriate.
-            #save_cut_array(survival_bool_dv, f"{array_name_base}_survival_bool_dv")
+    # Save each array separately, specifying 'float16' where appropriate.
+    print('[Saving data] Please be patient...')
+    save_cut_array(survival_bool_dv, f"{array_name_base}_survival_bool_dv")
     save_cut_array(rd_labs, f"{array_name_base}_rd_labs")
-            #save_cut_array((lifetimes_rest, 'float16'), f"{array_name_base}_lifetimes_rest")  # Saving as float16
-            #save_cut_array((lorentz_factors, 'float16'), f"{array_name_base}_lorentz_factors")  # Saving as float16
+    save_cut_array(lifetimes_rest, f"{array_name_base}_lifetimes_rest")
+    save_cut_array(lorentz_factors, f"{array_name_base}_lorentz_factors")
+    
     if not large_data:
         return survival_bool_dv, rd_labs, lifetimes_rest, lorentz_factors
     else:
@@ -521,11 +544,12 @@ def survival_invmass_nontrivial(momentum=1):
             for j, mix in enumerate(mixing):
                 original_batch = ParticleBatch(momentum_invmass_nt)
                 batch_invmass_nt = copy.deepcopy(original_batch)
+                batch_invmass_nt.batch_size = batch_size
                 survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
                 survival_bool_invmass_nt[i, j, :] = survival_mask_invmass_nt
                 pbar.update(1)
 
-    #save_cut_array(survival_bool_invmass_nt, array_name)
+    # save_cut_array(survival_bool_invmass_nt, array_name)
     return survival_bool_invmass_nt
 
 
@@ -619,7 +643,7 @@ def print_dashes(text, char='-'):
     side = (width - len(text) - 2) // 2
     print(f"{char * side} {text} {char * (width - side - len(text) - 2)}")
 
-def save_cut_array(array, name=''):
+def save_cut_array1(array, name=''):
     current_directory = os.getcwd()
     data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
     os.makedirs(data_path, exist_ok=True)
@@ -628,7 +652,7 @@ def save_cut_array(array, name=''):
     np.savez_compressed(array_path, array=array)
     
 
-def load_cut_array(name=''):
+def load_cut_array1(name=''):
     current_directory = os.getcwd()
     data_path = os.path.join(current_directory, 'data', data_folder)
     array_path = os.path.join(data_path, 'Cut computations', f'{name}.npz')
@@ -637,6 +661,38 @@ def load_cut_array(name=''):
         return (data['survival_bool_dv'], data['rd_labs'], data['lifetimes_rest'], data['lorentz_factors'])
     return None
 
+def save_cut_array(array, name=''):
+    current_directory = os.getcwd()
+    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    os.makedirs(data_path, exist_ok=True)
+    array_path = os.path.join(data_path, f'{name}.npz')
+    
+    # Save the array with a specified name within the .npz file
+    if name.endswith('survival_bool_dv'):
+        np.savez_compressed(array_path, survival_bool_dv=array)
+    elif name.endswith('rd_labs'):
+        np.savez_compressed(array_path, rd_labs=array)
+    elif name.endswith('lifetimes_rest'):
+        np.savez_compressed(array_path, lifetimes_rest=array)
+    elif name.endswith('lorentz_factors'):
+        np.savez_compressed(array_path, lorentz_factors=array)
+
+def load_cut_array(name=''):
+    current_directory = os.getcwd()
+    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    array_path = os.path.join(data_path, f'{name}.npz')
+    if os.path.exists(array_path):
+        data = np.load(array_path)
+        if name.endswith('survival_bool_dv'):
+            return data['survival_bool_dv']
+        elif name.endswith('rd_labs'):
+            return data['rd_labs']
+        elif name.endswith('lifetimes_rest'):
+            return data['lifetimes_rest']
+        elif name.endswith('lorentz_factors'):
+            return data['lorentz_factors']
+    return None
+    
 def data_processing(momenta):
     print_dashes("Data Processing")
 

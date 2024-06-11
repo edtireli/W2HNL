@@ -477,7 +477,13 @@ def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, lab
                 continue 
 
             # Format the C value as a power of ten for the label
-            C_label = f'10^{{{int(np.log10(1/C))}}}' if 1/C != 1 else '1'
+            exponent = int(np.log10(1/C))
+            if 1/C == 1:
+                C_label = '1'
+            elif exponent < 0:
+                C_label = f'10^{{{abs(exponent)}}}'
+            else:
+                C_label = f'10^{{-{exponent}}}'
             plt.text(mass_hnl[label_index], reciprocal_mixing_values[label_index], f'$c\\tau\\gamma = {C_label}$ m', color='red', fontsize=9,
                     ha='center', va='bottom', rotation=-15, alpha=0.4)
 
@@ -912,7 +918,10 @@ def plotting(momenta, batch, production_arrays, arrays):
                 plt.show()
                 
         survival_pt_= calculate_survival_fraction(expand_and_copy_array(survival_pT_displaced))
-        survival_invmass_= calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced))
+        if invmass_cut_type != 'trivial':
+            survival_invmass_ = calculate_survival_fraction(survival_invmass_displaced)
+        else:
+            survival_invmass_= calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced))    
         survival_rapidity_= calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced))
         survival_deltaR_= calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced))
         
@@ -930,7 +939,7 @@ def plotting(momenta, batch, production_arrays, arrays):
         #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_invmass_displaced)), smooth=False, sigma=1, title='HNL survival (invariant mass cut)', savename='survival_invmass')
         #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_rap_displaced)), smooth=False, sigma=1, title='HNL survival (rapidity cut)', savename='survival_rap')
         
-        if invmass_cut_type == 'trivial':
+        if invmass_cut_type != 'nontrivial':
             # Heatmap (unecessary)
             #plot_survival_parameter_space_regions(calculate_survival_fraction(expand_and_copy_array(survival_deltaR_displaced)), smooth=False, sigma=1, title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
             
@@ -938,10 +947,10 @@ def plotting(momenta, batch, production_arrays, arrays):
             plot_survival_fractions_simple([survival_pt_, survival_invmass_, survival_rapidity_, survival_deltaR_], ['$p_T$', '$M_{\\mu\\mu}$', '$\eta$', '$\Delta_R$'], 'Survival fractions', 'survival_fractions_simple')
         else:
             # Heatmap (necessary) because now invariant mass depends on mixing
-            plot_survival_fractions_simple([survival_pt_, survival_invmass_, survival_rapidity_, survival_deltaR_], ['$p_T$', '$\eta$', '$\Delta_R$'], 'Survival fractions', savename='survival_fractions_simple')
+            plot_survival_fractions_simple([survival_pt_, survival_rapidity_, survival_deltaR_], ['$p_T$', '$\eta$', '$\Delta_R$'], 'Survival fractions', savename='survival_fractions_simple')
             
             # Simple survival fraction plots
-            plot_survival_parameter_space_regions(calculate_survival_fraction(survival_deltaR_displaced), title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
+            #plot_survival_parameter_space_regions(calculate_survival_fraction(survival_deltaR_displaced), title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
 
     # Parameter space and production plots:
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')    

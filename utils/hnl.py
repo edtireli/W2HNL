@@ -675,6 +675,6 @@ if __name__ == '__main__':
 	#prompt1c = float(input('[!] Enter HNL mixing (tau): ') )
     #import matplotlib.pyplot as plt
     #masses = [m for m]
-	#b = [HNL(m,[0,0,1],True) for m in masses]
-    #print(b.NDecayWidth())
+#b = HNL(1,[0,0,1],True)
+#print(b.NLifetime())
 	#plt.plot()

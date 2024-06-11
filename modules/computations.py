@@ -90,32 +90,7 @@ def computations(momenta, arrays):
     print(' Angular seperation survival: ', np.mean(survival_deltaR_displaced)) # Validated
     print('Transverse momentum survival: ', np.mean(survival_pT_displaced)) # Validated
 
-    # Ensure all survival arrays are expanded to match shapes for broadcasting
-    if invmass_cut_type == 'nontrivial':
-        expanded_survivals = [
-        survival[:, np.newaxis, :] for survival in [
-            survival_pT_displaced, 
-            survival_rap_displaced, 
-            survival_deltaR_displaced
-        ]
-    ]
-    else:    
-        expanded_survivals = [
-            survival[:, np.newaxis, :] for survival in [
-                survival_pT_displaced, 
-                survival_rap_displaced, 
-                survival_invmass_displaced, 
-                survival_deltaR_displaced
-            ]
-        ]
 
-    # Combine survivals with proper broadcasting
-    if invmass_cut_type == 'nontrivial':
-        combined_survival = combined_survival = survival_dv_displaced * np.copy(survival_invmass_displaced)
-    else:
-        combined_survival = survival_dv_displaced
-
-    # Calculate efficiency by averaging over the particles dimension
     # Calculate initial production rates before any cuts
     experimental_sigma = 2.05e7  # fb corresponding to 20.64nb from https://arxiv.org/pdf/1603.09222.pdf
     cross_sections = experimental_sigma * np.array([HNL(m, [0,0,1], False).findBranchingRatio('N -> mu- mu+ nu_tau') for m in mass_hnl])

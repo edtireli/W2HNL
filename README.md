@@ -1,4 +1,5 @@
 # W2HNL
+![New Project (4)](https://github.com/edtireli/W2HNL/assets/129996957/ac2e92b6-fec4-4e1b-ac0c-9e3b59654869)
 ## Overview
 This Python program is developed for signal estimation of feebly interacting massive particles (FIMPs) for the ATLAS experiment at the Large Hadron Collider (LHC) with special focus on heavy neutral leptons decaying macroscopically to di-leptons.
 

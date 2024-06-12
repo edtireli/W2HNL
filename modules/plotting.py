@@ -220,7 +220,7 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
 
     cmap = plt.get_cmap('viridis')
     mesh = plt.pcolormesh(X, Y, production_allcuts.T, cmap=cmap, shading='auto')
-    plt.colorbar(mesh, label='Survival Fraction')
+    plt.colorbar(mesh, label='Production')
 
     # Draw contours around regions where production exceeds the minimum thresholds
     if production_minimum is not None:
@@ -456,6 +456,7 @@ def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, lab
     # Use pcolormesh to plot the survival fraction directly.
     cmap = plt.get_cmap('viridis')
     mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, shading='auto')  # Transpose to align dimensions
+
     plt.colorbar(mesh, label='Survival Fraction')
 
     if plot_mass_mixing_lines:

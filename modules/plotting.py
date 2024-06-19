@@ -25,7 +25,7 @@ delete_png_before_use = False
 preliminary_plots = True
 
 # Dynamic plot (Web hosted 3d lab frame decay vertex plot with daughters as arrows)
-dynamic_plot = False
+dynamic_plot = True
 
 # Decay vertex statistics for specific mass/mix HNLs (configure below by plot)
 plots_decay_stats = False
@@ -954,6 +954,8 @@ def plotting(momenta, batch, production_arrays, arrays):
             #plot_survival_parameter_space_regions(calculate_survival_fraction(survival_deltaR_displaced), title='HNL survival ($\\Delta R$ cut)', savename='survival_deltaR')
 
     # Parameter space and production plots:
+    plot_parameter_space_region(production_nocuts, title='HNL Production (no cuts)', savename = 'hnl_production_nocuts')  
+    save_array(production_nocuts, 'production_nocuts')
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')    
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
     if production_plots:

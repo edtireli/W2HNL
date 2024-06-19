@@ -34,11 +34,11 @@ import sys, os
 import numpy as np
 import scipy.interpolate
 import scipy.integrate
-import utils.shipunit as u
+import shipunit as u
 
 path_to_hnlbr = '/hnlbr'
 sys.path.append(path_to_hnlbr)
-import utils.hnlbr.data.particle as dat
+import hnlbr.data.particle as dat
 
 # Load PDG database
 pdata = dat.ParticleData()
@@ -652,29 +652,44 @@ class HNL(HNLbranchings):
         if system == "FairShip": self.NLifetime *= 1.e9
         return self.NLifetime
 
+import matplotlib.pyplot as plt  
+import numpy as np
+
+def save_data(masses, branchings, filename):
+    data = np.array([masses, branchings])
+    np.save(filename, data)
+
 if __name__ == '__main__':
-	open('hnlbr/Gamma_hat_e.dat','w').close()
-	open('hnlbr/Gamma_hat_mu.dat','w').close()
-	open('hnlbr/Gamma_hat_tau.dat','w').close()
-	#spacing=np.linspace(0.5,5,30, dtype=float)
-	spacing=np.array([0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.0,2.1,2.2,2.3,2.4,2.5,2.6,2.7,2.8,2.9,3.0,3.1,3.2,3.3,3.4,3.5,3.6,3.7,3.8,3.9,4.0,4.1,4.2,4.3,4.4,4.5,4.6,4.7,4.8,4.9,5.0] ) 
-	for i in spacing:
-		b_e = HNL(i,[1,0,0],True)
-		b_mu = HNL(i,[0,1,0],True)
-		b_tau = HNL(i,[0,0,1],True)
-		with open('hnlbr/Gamma_hat_e.dat','a') as g:
-			g.write(str(i) +'     ' + str( b_e.NDecayWidth() ) +'\n')
-		with open('hnlbr/Gamma_hat_mu.dat','a') as g:
-			g.write(str(i) +'     ' + str( b_e.NDecayWidth() ) +'\n')	
-		with open('hnlbr/Gamma_hat_tau.dat','a') as g:
-			g.write(str(i) +'     ' + str( b_e.NDecayWidth() ) +'\n')
-				
-	#prompt0 = float(input('[!] Enter HNL mass: ') )
-	#prompt1a = float(input('[!] Enter HNL mixing (e): ') )
-	#prompt1b = float(input('[!] Enter HNL mixing (mu): ') )
-	#prompt1c = float(input('[!] Enter HNL mixing (tau): ') )
-    #import matplotlib.pyplot as plt
-    #masses = [m for m]
-#b = HNL(1,[0,0,1],True)
-#print(b.NLifetime())
-	#plt.plot()
+	
+    
+    masses = [m for m in np.linspace(0.1,10, 1000)]
+    #b = [HNL(m,[0,0,1],False).findBranchingRatio('N -> nu nu nu') for m in masses]
+    #masses = [1, 1.5, 2, 3, 3.5, 4, 5, 6.5]
+    #a = [HNL(m,[1e-6,1e-6,1e-6],False).computeNLifetime()/1e-9 for m in masses]
+    #print(a)
+    a = np.array([HNL(m,[0,0,1e-6],False).findBranchingRatio('N -> mu- mu+ nu_tau') for m in masses])
+    b = np.array([HNL(m,[0,0,1e-6],False).findBranchingRatio('N -> mu- mu+ nu_mu') for m in masses])
+    c = np.array([HNL(m,[0,0,1e-6],False).findBranchingRatio('N -> mu- mu+ nu_e') for m in masses])
+    d = a+b+c
+    plt.plot(masses,d)
+    plt.ylabel('Branching Ratio')
+    plt.xlabel('$M_N$ (GeV)')
+    plt.grid(True)
+    plt.ylabel('Branching Ratio')
+    plt.xlabel('$M_N$ (GeV)')
+    plt.show()
+
+    
+    #b = [HNL(m,[0,0,1],False).findBranchingRatio('N -> mu- mu+ nu_tau') for m in masses]
+    #plt.plot(masses, a)
+    #plt.plot(masses, b)
+    #plt.show()
+    #save_data(masses, b, '/Users/edt/Desktop/branchings_jlt.npy')
+    #plt.plot(masses, b)
+    ###plt.grid(True)
+    #plt.ylabel('Branching Ratio')
+    #plt.xlabel('$M_N$ (GeV)')
+    #plt.show()
+
+    #c = HNL(7,[0,0,1e-6],False).findBranchingRatio('N -> mu- mu+ nu_tau')
+    #print(c)

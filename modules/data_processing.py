@@ -49,8 +49,8 @@ def invmass_rdv_efficiency(r_dv, m_dv):
 
 def invmass_rdv_efficiency_ee(r_dv, m_dv):
     r_dv = r_dv * light_speed() * 1e3 # GeV to m
-    c1 =  -96 # defined from external script
-    c2 =   1.75 # defined from external script, lower m_dv limit for large r_dv
+    c1 =  -127 # defined from external script
+    c2 =   1.5 # defined from external script, lower m_dv limit for large r_dv
     if r_dv <= 50:
         y1 = 10
     else:

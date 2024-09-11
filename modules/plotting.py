@@ -764,7 +764,7 @@ def plotting(momenta, batch, production_arrays, arrays):
         survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
 
     production_nocuts, production_allcuts, production_pT, production_rap, production_invmass, production_dv, production__pT_rap, production__pT_rap_invmass = production_arrays
-    save_array(production_allcuts, f'production_allcuts_{luminosity}')
+    save_array(production_allcuts, f'production_allcuts_{luminosity}_{invmass_cut_type}')
     if not large_data:
         save_array(lifetimes_rest, name='lifetime_rest_data')
         average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
@@ -956,7 +956,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     # Parameter space and production plots:
     plot_parameter_space_region(production_nocuts, title='HNL Production (no cuts)', savename = 'hnl_production_nocuts')  
     save_array(production_nocuts, 'production_nocuts')
-    plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = 'hnl_production_allcuts')    
+    plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = f'hnl_production_allcuts_{luminosity}_{invmass_cut_type}')    
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
     if production_plots:
         plot_parameter_space_region(production_invmass, title='HNL Production (invariant mass cut)', savename = 'hnl_production_invmass')

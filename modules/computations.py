@@ -18,7 +18,6 @@ def compute_efficiency(production_nocuts, survivals):
     combined_survival = np.ones(production_nocuts.shape + (survivals[0].shape[-1],))
     
     for survival in survivals:
-        print(np.shape(survival))
         survival_copy = np.copy(survival)  # Explicit copy to ensure original is not modified
         if survival_copy.ndim == 2:
             # Expand survival across the mixing dimension and use copy for operation
@@ -98,7 +97,7 @@ def computations(momenta, arrays):
         cross_sections = experimental_sigma * np.array([HNL(m, [0,0,1], False).findBranchingRatio('N -> mu- mu+ nu_tau') for m in mass_hnl])
     else:
         cross_sections = experimental_sigma * np.array([HNL(m, [0,0,1], False).findBranchingRatio('N -> e- e+ nu_tau') for m in mass_hnl])
-    production_nocuts = luminosity * cross_sections[:, np.newaxis] * np.array(mixing)[np.newaxis, :]  # Shape now (mass, mixing)
+    production_nocuts = rescaling * luminosity * cross_sections[:, np.newaxis] * np.array(mixing)[np.newaxis, :]  # Shape now (mass, mixing)
 
 
 

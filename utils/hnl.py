@@ -34,11 +34,8 @@ import sys, os
 import numpy as np
 import scipy.interpolate
 import scipy.integrate
-import shipunit as u
-
-path_to_hnlbr = '/hnlbr'
-sys.path.append(path_to_hnlbr)
-import hnlbr.data.particle as dat
+import utils.shipunit as u
+import utils.hnlbr.data.particle as dat
 
 # Load PDG database
 pdata = dat.ParticleData()
@@ -662,34 +659,65 @@ def save_data(masses, branchings, filename):
 if __name__ == '__main__':
 	
     
-    masses = [m for m in np.linspace(0.1,10, 1000)]
+    #masses = [m for m in np.linspace(0.1,10, 10)]
     #b = [HNL(m,[0,0,1],False).findBranchingRatio('N -> nu nu nu') for m in masses]
     #masses = [1, 1.5, 2, 3, 3.5, 4, 5, 6.5]
     #a = [HNL(m,[1e-6,1e-6,1e-6],False).computeNLifetime()/1e-9 for m in masses]
     #print(a)
-    a = np.array([HNL(m,[0,0,1e-6],False).findBranchingRatio('N -> mu- mu+ nu_tau') for m in masses])
-    b = np.array([HNL(m,[0,0,1e-6],False).findBranchingRatio('N -> mu- mu+ nu_mu') for m in masses])
-    c = np.array([HNL(m,[0,0,1e-6],False).findBranchingRatio('N -> mu- mu+ nu_e') for m in masses])
-    d = a+b+c
-    plt.plot(masses,d)
-    plt.ylabel('Branching Ratio')
-    plt.xlabel('$M_N$ (GeV)')
-    plt.grid(True)
-    plt.ylabel('Branching Ratio')
-    plt.xlabel('$M_N$ (GeV)')
-    plt.show()
-
     
-    #b = [HNL(m,[0,0,1],False).findBranchingRatio('N -> mu- mu+ nu_tau') for m in masses]
-    #plt.plot(masses, a)
-    #plt.plot(masses, b)
-    #plt.show()
-    #save_data(masses, b, '/Users/edt/Desktop/branchings_jlt.npy')
-    #plt.plot(masses, b)
-    ###plt.grid(True)
-    #plt.ylabel('Branching Ratio')
-    #plt.xlabel('$M_N$ (GeV)')
-    #plt.show()
+    # Constants
+    vev = 246
+    c_SRR = 1e-3 * vev**-2
 
-    #c = HNL(7,[0,0,1e-6],False).findBranchingRatio('N -> mu- mu+ nu_tau')
-    #print(c)
+    # Wilson coefficients simplified
+    c_VLR = c_VRR = c_SLR = 0
+
+    # Form factors (as example values)
+    f_P = 0.212
+    f_P_S = 1
+
+    # Decay width function
+    def decay_width(m_P, m_N):
+        # Pre-factor
+        prefactor = m_P / (32 * np.pi)
+        
+        # Square root factor
+        sqrt_factor = np.sqrt(1 - (4 * m_N**2) / m_P**2)
+        
+        # First term
+        term1 = 2 * np.abs(f_P)**2 * np.abs(c_VRR - c_VLR)**2 * m_N**2
+        
+        # Second term (with nested parts)
+        term2_part1 = np.abs(c_SRR - c_SLR)**2 + np.abs(c_SRR - c_SLR)**2
+        term2_part2 = (1 - 2 * m_N**2 / m_P**2)
+        term2_part3 = 2 * ((c_SRR - c_SLR) * (c_SRR - c_SLR) + np.conj(c_SRR - c_SLR) * np.conj(c_SRR - c_SLR)) * (m_N**2 / m_P**2)
+        term2 = np.abs(f_P_S)**2 * (term2_part1 * term2_part2 + term2_part3)
+        
+        # Third term (mixed terms)
+        term3_part1 = (c_VRR - c_VLR) * (np.conj(c_SRR) - np.conj(c_SLR)) + (c_SRR - c_SLR)
+        term3_part2 = (c_VRR - c_VLR) * (c_SRR - c_SLR)
+        term3 = f_P * f_P_S * (term3_part1 + term3_part2) * m_N
+        
+        # Full expression
+        gamma = prefactor * sqrt_factor * (term1 + term2 + term3)
+        
+        return np.real(gamma)  # Taking the real part to avoid small imaginary residues
+
+    # Example plotting over m_N for fixed m_P
+    m_P = 5.4  
+    m_N_vals = np.linspace(1e-6, 5, 50000) 
+    m_N_lifetimes = np.array([HNL(m,[1,1,1],False).computeNLifetime() for m in m_N_vals])
+    #m_N_lifetimes = 2.4e-5
+    
+    # Calculate decay widths
+    gamma_vals = np.array([decay_width(m_P, m_N) for m_N in m_N_vals])
+    branchings = gamma_vals * m_N_lifetimes
+
+    # Plotting the result
+    plt.plot(m_N_vals, branchings)
+    plt.xlabel('m_N')
+    plt.ylabel('Decay Width (Gamma)')
+    plt.title('Decay Width as a function of m_N')
+    plt.grid(True)
+    plt.yscale('log')
+    plt.show()

@@ -25,13 +25,13 @@ delete_png_before_use = False
 preliminary_plots = True
 
 # Dynamic plot (Web hosted 3d lab frame decay vertex plot with daughters as arrows)
-dynamic_plot = True
+dynamic_plot = False
 
 # Decay vertex statistics for specific mass/mix HNLs (configure below by plot)
 plots_decay_stats = False
 
 # Heat maps of production after various cuts
-plot_heatmaps = True 
+plot_heatmaps = False 
 
 # Plot survival heatmaps
 survival_plots = True

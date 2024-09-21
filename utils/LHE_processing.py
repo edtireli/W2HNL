@@ -5,7 +5,7 @@ import numpy as np
 import os
 import os.path
 from os import path
-from modules.__init__ import *
+from parameters.data_parameters import *
 import re
 from dataclasses import dataclass, field
 from xml.etree import ElementTree

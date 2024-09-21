@@ -440,7 +440,7 @@ class ParticleBatch:
 
 def survival_pT(momentum):
     array_name = f"survival_pT_{pT_minimum}"
-    loaded_array = load_cut_array(array_name)
+    loaded_array = load_cut_array_(array_name)
     if loaded_array is not None:
         return loaded_array
     
@@ -466,7 +466,7 @@ def survival_pT(momentum):
     
     combined_survival_pT = survival_bool_all_masses_pT_minus * survival_bool_all_masses_pT_plus
     
-    #save_cut_array(combined_survival_pT, array_name)
+    save_cut_array1(combined_survival_pT, array_name)
     
     return combined_survival_pT
 
@@ -529,8 +529,8 @@ def survival_dv(momentum=1, rng_type=1):
 
 
 def survival_invmass_nontrivial(momentum=1):
-    array_name = "survival_invmass_nontrivial"
-    loaded_array = load_cut_array(array_name)
+    array_name = f"survival_invmass_nontrivial_{cut_type_dv}_{r_min}_{r_max_l}_{r_max_t}"
+    loaded_array = load_cut_array_(array_name)
     if loaded_array is not None:
         print('[Loaded cut] Invariant mass')
         return loaded_array
@@ -545,18 +545,18 @@ def survival_invmass_nontrivial(momentum=1):
                 original_batch = ParticleBatch(momentum_invmass_nt)
                 batch_invmass_nt = copy.deepcopy(original_batch)
                 batch_invmass_nt.batch_size = batch_size
-                survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+                survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, cut_type_dv, unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
                 survival_bool_invmass_nt[i, j, :] = survival_mask_invmass_nt
                 pbar.update(1)
 
-    # save_cut_array(survival_bool_invmass_nt, array_name)
+    save_cut_array1(survival_bool_invmass_nt, array_name)
     return survival_bool_invmass_nt
 
 
 def survival_rap(momentum):
     # Define a dynamic name based on conditions/parameters you might want to include
     array_name = f"survival_rap_{pseudorapidity_maximum}"
-    loaded_array = load_cut_array(array_name)
+    loaded_array = load_cut_array_(array_name)
     if loaded_array is not None:
         print('[Loaded cut] Pseudorapidity')
         return loaded_array
@@ -586,13 +586,13 @@ def survival_rap(momentum):
     combined_survival_rap = survival_bool_all_masses_rap_minus * survival_bool_all_masses_rap_plus
 
     # Save the combined result before returning
-    #save_cut_array(combined_survival_rap, array_name)
+    save_cut_array1(combined_survival_rap, array_name)
     
     return combined_survival_rap
 
 def survival_invmass(cut_condition, momentum, experimental_trigger=False):
-    array_name = f"survival_invmass_{cut_condition}"
-    loaded_array = load_cut_array(array_name)
+    array_name = f"survival_invmass_{cut_condition}_trivial"
+    loaded_array = load_cut_array_(array_name)
     if loaded_array is not None:
         print('[Loaded cut] Invariant mass')
         return loaded_array
@@ -606,13 +606,13 @@ def survival_invmass(cut_condition, momentum, experimental_trigger=False):
         survival_bool_all_masses_invmass.append(survival_mask_invmass)
     
     survival_bool_all_masses_invmass = np.array(survival_bool_all_masses_invmass)
-    #save_cut_array(survival_bool_all_masses_invmass, array_name)
+    save_cut_array1(survival_bool_all_masses_invmass, array_name)
     return survival_bool_all_masses_invmass
 
 
 def survival_deltaR(cut_condition, momentum):
     array_name = f"survival_dR_{cut_condition}"
-    loaded_array = load_cut_array(array_name)
+    loaded_array = load_cut_array_(array_name)
     if loaded_array is not None:
         print('[Loaded cut] Angular seperation')
         return loaded_array
@@ -626,7 +626,7 @@ def survival_deltaR(cut_condition, momentum):
         survival_bool_all_masses_deltaR.append(survival_mask)
     
     survival_bool_all_masses_deltaR = np.array(survival_bool_all_masses_deltaR)
-    #save_cut_array(survival_bool_all_masses_deltaR, array_name)
+    save_cut_array1(survival_bool_all_masses_deltaR, array_name)
     return survival_bool_all_masses_deltaR
 
 
@@ -676,6 +676,17 @@ def save_cut_array(array, name=''):
         np.savez_compressed(array_path, lifetimes_rest=array)
     elif name.endswith('lorentz_factors'):
         np.savez_compressed(array_path, lorentz_factors=array)
+
+
+def load_cut_array_(name=''):
+    current_directory = os.getcwd()
+    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    array_path = os.path.join(data_path, f'{name}.npz')
+    if os.path.exists(array_path):
+        data = np.load(array_path)
+        return data['array']  # Extract the array using the key 'array'
+    return None
+
 
 def load_cut_array(name=''):
     current_directory = os.getcwd()

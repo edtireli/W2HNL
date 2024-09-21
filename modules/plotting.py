@@ -437,7 +437,27 @@ def plot_survival_parameter_space_regions(survival_fraction, labels=None, colors
     save_survival_data(survival_fraction, savename)
     plt.show()
 
-def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, labels=None, colors=None, title='', savename='', plot_mass_mixing_lines=False, gammas=None):
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Assume the following global variables and functions are defined:
+# - mass_hnl: array of HNL masses
+# - mixing: array of mixing parameter values (Theta_tau^2)
+# - gammas: array of Lorentz factors for each mass (if applicable)
+# - HNL: class with method computeNLifetime()
+# - light_speed: function returning the speed of light
+# - on_key_press: function to handle key press events (if used)
+# - save_plot: function to save the plot (if used)
+
+def plot_survival_parameter_space_regions_nointerpolation(
+    survival_fraction,
+    labels=None,
+    colors=None,
+    title='',
+    savename='',
+    plot_mass_mixing_lines=False,
+    gammas=None
+):
     """
     Plot survival fraction on the parameter space directly using the actual survival values.
 
@@ -447,57 +467,126 @@ def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, lab
     :param title: Title of the plot.
     :param savename: Filename to save the plot.
     :param plot_mass_mixing_lines: Boolean to plot mass-mixing lines.
+    :param gammas: Array of Lorentz factors corresponding to each mass.
     """
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(6, 6))
 
-    # Assuming mass_hnl and mixing are global variables defining the axes.
-    X, Y = np.meshgrid(mass_hnl, mixing)
+    # Convert mass_hnl and mixing to NumPy arrays
+    mass_hnl_array = np.array(mass_hnl)
+    mixing_array = np.array(mixing)
+
+    X, Y = np.meshgrid(mass_hnl_array, mixing_array)
     
     # Use pcolormesh to plot the survival fraction directly.
     cmap = plt.get_cmap('viridis')
     mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, shading='auto')  # Transpose to align dimensions
-
+    
     plt.colorbar(mesh, label='Survival Fraction')
 
     if plot_mass_mixing_lines:
-        constants = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100, 1000, 10000, 100000]
-        c = light_speed() 
+        # Define constants C representing c*tau*gamma in meters
+        constants = [1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100, 1e3, 1e4]
+        c = light_speed()  # Speed of light in meters per second
+
+        # Precompute tau values at mixing parameter Theta_tau^2 = 1
+        tau_values = np.array([HNL(mass, [0, 0, 1], False).computeNLifetime() for mass in mass_hnl_array])
 
         for C in constants:
-            if C <= 1e-4 or C >= 1e5:
-                continue 
+            # Compute the reciprocal of mixing values for each mass, given c*tau*gamma = C
+            mixing_values_for_C = np.array([
+                C / (tau * c * gammas[index]) for index, tau in enumerate(tau_values)
+            ])
+            reciprocal_mixing_values = 1 / mixing_values_for_C  # This gives Theta_tau^2
 
-            tau_values = [HNL(mass, [0,0,1], False).computeNLifetime() for mass in mass_hnl]
-            mixing_values_for_C = np.array([C / (tau * c * gammas[index]) for index, tau in enumerate(tau_values)])
-            reciprocal_mixing_values = 1 / mixing_values_for_C
+            # Plot the lines on the mass-mixing parameter space
+            plt.plot(mass_hnl_array, reciprocal_mixing_values, '--', color='red', alpha=0.7)
 
-            plt.plot(mass_hnl, reciprocal_mixing_values, '--', color='red', label=f'C={1/C:.1e}', alpha=0.4)
-
-            label_index = len(mass_hnl) // 2
-            if 1/C <= 1e-4 or 1/C >= 1e5:
-                continue 
-
-            # Format the C value as a power of ten for the label
-            exponent = int(np.log10(1/C))
-            if 1/C == 1:
-                C_label = '1'
-            elif exponent < 0:
-                C_label = f'10^{{{abs(exponent)}}}'
+            # Define target mass_hnl value for label placement
+            if C == 1e4:
+                # Shift the last label to the left (e.g., to 35% of the mass range)
+                target_mass_hnl = mass_hnl_array[0] + (mass_hnl_array[-1] - mass_hnl_array[0]) * 0.35
+            elif C == 1e3:
+                # Shift the last label to the left (e.g., to 45% of the mass range)
+                target_mass_hnl = mass_hnl_array[0] + (mass_hnl_array[-1] - mass_hnl_array[0]) * 0.45    
             else:
-                C_label = f'10^{{-{exponent}}}'
-            plt.text(mass_hnl[label_index], reciprocal_mixing_values[label_index], f'$c\\tau\\gamma = {C_label}$ m', color='red', fontsize=9,
-                    ha='center', va='bottom', rotation=-15, alpha=0.4)
+                # For other labels, keep the target mass in the middle
+                target_mass_hnl = (mass_hnl_array[0] + mass_hnl_array[-1]) / 2  # Middle of mass range
 
+            # Find the index in mass_hnl_array closest to target_mass_hnl
+            label_index = np.argmin(np.abs(mass_hnl_array - target_mass_hnl))
+
+            # Check if reciprocal_mixing_values[label_index] is within the plotting range
+            if not (min(mixing_array) <= reciprocal_mixing_values[label_index] <= max(mixing_array)):
+                # Search for the closest index where the line is within the plotting range
+                sorted_indices = np.argsort(np.abs(mass_hnl_array - target_mass_hnl))
+                for idx in sorted_indices:
+                    if min(mixing_array) <= reciprocal_mixing_values[idx] <= max(mixing_array):
+                        label_index = idx
+                        break
+                else:
+                    continue  # Skip labeling if no suitable index is found
+
+            # Adjust indices for slope calculation
+            if label_index <= 0:
+                idx1, idx2 = label_index, label_index + 1
+            elif label_index >= len(mass_hnl_array) - 1:
+                idx1, idx2 = label_index - 1, label_index
+            else:
+                idx1, idx2 = label_index - 1, label_index + 1
+
+            # Transform data points to display coordinates
+            ax = plt.gca()
+            x_data = mass_hnl_array[[idx1, idx2]]
+            y_data = reciprocal_mixing_values[[idx1, idx2]]
+
+            # Since y-axis is logarithmic, transform y_data accordingly
+            y_data_log = np.log10(y_data)
+
+            # Get the transformation from data to display coordinates
+            trans = ax.transData.transform
+            x_display, y_display = trans(np.column_stack([x_data, y_data_log])).T
+
+            # Compute the angle between the two points in display coordinates
+            delta_x = x_display[1] - x_display[0]
+            delta_y = y_display[1] - y_display[0]
+            angle_rad = np.arctan2(delta_y, delta_x)
+            angle_deg = np.degrees(angle_rad)
+
+            # Adjust the label position slightly upward in log space
+            offset = 0.15  # Adjust this value as needed
+            y_offset_log = np.log10(reciprocal_mixing_values[label_index]) + offset
+            y_offset = 10 ** y_offset_log
+
+            # Format the C value for the label without dollar signs
+            exponent = int(np.log10(C))
+            if C == 1:
+                C_label = '1'
+            else:
+                C_label = f'10^{{{exponent}}}'
+
+            # Place the label at the adjusted position, ensuring proper math mode usage
+            plt.text(
+                mass_hnl_array[label_index],
+                y_offset,
+                f'$c\\tau\\gamma = {C_label}\\ \\mathrm{{m}}$',
+                color='red',
+                fontsize=8,
+                ha='center',
+                va='center',
+                rotation=angle_deg - 5,
+                rotation_mode='anchor',
+                alpha=0.75
+            )
 
     plt.xscale('linear')
     plt.yscale('log')
-    plt.ylim(min(mixing), max(mixing))
-    plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
+    plt.ylim(min(mixing_array), max(mixing_array))
+    plt.xlabel('$M_N$ (GeV)', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
     plt.title(title)
     plt.grid(alpha=0.25)
 
-    # Connect the key press event to the handler
+    # Connect the key press event to the handler (if interactive features are needed)
     plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
 
     # Save plot if savename is provided
@@ -505,6 +594,8 @@ def plot_survival_parameter_space_regions_nointerpolation(survival_fraction, lab
         save_plot(savename)
     
     plt.show()
+
+
 
 def mean_from_2d_survival(arr):
     temp_array = [np.mean(i) for i in arr]
@@ -631,6 +722,249 @@ def find_closest_indices(target_mass, target_mixing):
     mixing_index = np.argmin(mixing_diff)
 
     return mass_index, mixing_index
+
+def plot_invariant_mass_cut_histogram_heatmap(momenta, survival_invmass_displaced, r_lab, mass_hnl, mixing, production_allcuts):
+    """
+    Plots the invariant mass cut as a 2D histogram heatmap, showing passed and failed events as color gradients.
+    """
+    # Find mixing indices where production_allcuts >= 3 for any mass
+    production_mask = np.any(production_allcuts >= 3, axis=0)
+    mixing_indices_with_production = np.where(production_mask)[0]
+
+    if len(mixing_indices_with_production) == 0:
+        print("No mixing values with production >= 3 found.")
+        return
+
+    # Find the mixing index with the lowest mixing value among those
+    mixing_values_with_production = np.array(mixing)[mixing_indices_with_production]
+    min_mixing_idx_in_list = np.argmin(mixing_values_with_production)
+    mixing_idx = mixing_indices_with_production[min_mixing_idx_in_list]
+
+    # For this mixing_idx, find mass indices where production_allcuts >= 3
+    mass_indices = np.where(production_allcuts[:, mixing_idx] >= 3)[0]
+
+    # Get production values for these mass indices
+    production_values = production_allcuts[mass_indices, mixing_idx]
+
+    # Select mass index with maximum production
+    max_production_idx_in_list = np.argmax(production_values)
+    mass_idx = mass_indices[max_production_idx_in_list]
+
+    # Get decay positions and compute decay lengths
+    r_dv = r_lab[mass_idx, mixing_idx, :, :]  # Shape: (n_events, 3)
+    r_dv_norm = np.linalg.norm(r_dv, axis=1)
+    r_dv_norm_m = r_dv_norm * light_speed()  # Convert to meters
+    r_dv_norm_mm = r_dv_norm_m * 1000  # Convert to mm
+
+    # Get momenta of the displaced particles
+    batch = ParticleBatch(momenta)
+    batch.mass(mass_hnl[mass_idx])  # Select the mass
+
+    batch.particle('displaced_minus')
+    E_minus = batch.E()
+    px_minus = batch.px()
+    py_minus = batch.py()
+    pz_minus = batch.pz()
+
+    batch.particle('displaced_plus')
+    E_plus = batch.E()
+    px_plus = batch.px()
+    py_plus = batch.py()
+    pz_plus = batch.pz()
+
+    # Compute invariant masses of the events
+    E_total = E_minus + E_plus
+    px_total = px_minus + px_plus
+    py_total = py_minus + py_plus
+    pz_total = pz_minus + pz_plus
+    invariant_masses = np.sqrt(np.maximum(0, E_total**2 - px_total**2 - py_total**2 - pz_total**2))
+
+    # Get survival status for the invariant mass cut
+    passed = survival_invmass_displaced[mass_idx, mixing_idx, :]
+
+    # Constants for muon or electron channel based on pid_displaced_lepton
+    global pid_displaced_lepton
+    if pid_displaced_lepton == 13:
+        c1 = -20
+        c2 = 3
+    elif pid_displaced_lepton == 11:
+        c1 = -127
+        c2 = 1.5
+    else:
+        raise ValueError("Unsupported pid_displaced_lepton. Use 11 for electron or 13 for muon.")
+
+    # Define r_dv array for plotting the cut lines
+    r_dv_plot = np.linspace(0, 300, 1000)  # Define r_dv from 0 to 300 mm
+
+    # Function y1(r_dv) for the invariant mass cut
+    def y1(r_dv, c1):
+        return np.where(r_dv <= 50, 10, ((c1 - 10) / (700 - 50)) * (r_dv - 50) + 10)
+
+    y1_vals = y1(r_dv_plot, c1)
+    y2 = c2
+
+    # Find intersection point where y1 = y2
+    intersection_rdv = 50 + ((10 - y2) * (700 - 50) / (10 - c1))
+    intersection_index = np.where(r_dv_plot >= intersection_rdv)[0][0]
+
+    # Plotting the invariant mass cut and events as a heatmap
+    plt.figure(figsize=(6, 6))
+
+    # Plot y1 up to the intersection point
+    plt.plot(r_dv_plot[:intersection_index], y1_vals[:intersection_index], linestyle='-', color='black', label='$y_1(r_{DV})$')
+
+    # Plot y2 as a horizontal line from the intersection point onwards
+    plt.plot(r_dv_plot[intersection_index:], [y2]*(len(r_dv_plot) - intersection_index), linestyle='-', color='black', label='$y_2$')
+
+    # Fill the accepted region
+    plt.fill_between(r_dv_plot[:intersection_index], y1_vals[:intersection_index], y2=15, interpolate=True, color='grey', alpha=0.5)
+    plt.fill_between(r_dv_plot[intersection_index:], y2, y2=15, interpolate=True, color='grey', alpha=0.5)
+
+    # Add red dotted line at y=5 GeV
+    plt.axhline(y=5, color='red', linestyle=':', label='$m_{DV} = 5$ GeV')
+
+    # Create a heatmap of events
+    # Define the bins for the heatmap (you can adjust the bin size as needed)
+    bins_r_dv = np.linspace(0, 300, 50)
+    bins_mass = np.linspace(0, 15, 50)
+
+    # Use plt.hist2d to generate the heatmap
+    plt.hist2d(r_dv_norm_mm, invariant_masses, bins=[bins_r_dv, bins_mass], cmap='viridis', cmin=1, cmax=10)
+
+    # Add a colorbar to the heatmap
+    plt.colorbar(label='Event Density')
+
+    # Plot decorations
+    plt.xlabel('$r_{\\mathrm{DV}}$ [mm]', fontsize=12)
+    plt.ylabel('$m_{\\mathrm{DV}}$ [GeV]', fontsize=12)
+    plt.title(f'Invariant Mass Cut with Events\nMass={mass_hnl[mass_idx]} GeV, Mixing={mixing[mixing_idx]:.1e}', fontsize=14)
+    plt.ylim(0, 15)
+    plt.xlim(0, 300)
+    plt.grid(True)
+    plt.legend()
+
+    plt.tight_layout()
+    save_plot('invariant_mass_cut_histogram')
+    plt.show()
+   
+def plot_invariant_mass_cut_histogram(momenta, survival_invmass_displaced, r_lab, mass_hnl, mixing, production_allcuts):
+    """
+    Plots the invariant mass cut as a 2D histogram, showing passed and failed events as colored boxes.
+    """
+    # Find mixing indices where production_allcuts >= 3 for any mass
+    production_mask = np.any(production_allcuts >= 3, axis=0)
+    mixing_indices_with_production = np.where(production_mask)[0]
+
+    if len(mixing_indices_with_production) == 0:
+        print("No mixing values with production >= 3 found.")
+        return
+
+    # Find the mixing index with the lowest mixing value among those
+    mixing_values_with_production = np.array(mixing)[mixing_indices_with_production]
+    min_mixing_idx_in_list = np.argmin(mixing_values_with_production)
+    mixing_idx = mixing_indices_with_production[min_mixing_idx_in_list]
+
+    # For this mixing_idx, find mass indices where production_allcuts >= 3
+    mass_indices = np.where(production_allcuts[:, mixing_idx] >= 3)[0]
+
+    # Get production values for these mass indices
+    production_values = production_allcuts[mass_indices, mixing_idx]
+
+    # Select mass index with maximum production
+    max_production_idx_in_list = np.argmax(production_values)
+    mass_idx = mass_indices[max_production_idx_in_list]
+
+    # Get decay positions and compute decay lengths
+    r_dv = r_lab[mass_idx, mixing_idx, :, :]  # Shape: (n_events, 3)
+    r_dv_norm = np.linalg.norm(r_dv, axis=1)
+    r_dv_norm_m = r_dv_norm * light_speed()  # Convert to meters
+    r_dv_norm_mm = r_dv_norm_m * 1000  # Convert to mm
+
+    # Get momenta of the displaced particles
+    batch = ParticleBatch(momenta)
+    batch.mass(mass_hnl[mass_idx])  # Select the mass
+
+    batch.particle('displaced_minus')
+    E_minus = batch.E()
+    px_minus = batch.px()
+    py_minus = batch.py()
+    pz_minus = batch.pz()
+
+    batch.particle('displaced_plus')
+    E_plus = batch.E()
+    px_plus = batch.px()
+    py_plus = batch.py()
+    pz_plus = batch.pz()
+
+    # Compute invariant masses of the events
+    E_total = E_minus + E_plus
+    px_total = px_minus + px_plus
+    py_total = py_minus + py_plus
+    pz_total = pz_minus + pz_plus
+    invariant_masses = np.sqrt(np.maximum(0, E_total**2 - px_total**2 - py_total**2 - pz_total**2))
+
+    # Get survival status for the invariant mass cut
+    passed = survival_invmass_displaced[mass_idx, mixing_idx, :]
+
+    # Constants for muon or electron channel based on pid_displaced_lepton
+    global pid_displaced_lepton
+    if pid_displaced_lepton == 13:
+        c1 = -20
+        c2 = 3
+    elif pid_displaced_lepton == 11:
+        c1 = -127
+        c2 = 1.5
+    else:
+        raise ValueError("Unsupported pid_displaced_lepton. Use 11 for electron or 13 for muon.")
+
+    # Define r_dv array for plotting the cut lines
+    r_dv_plot = np.linspace(0, 300, 1000)  # Define r_dv from 0 to 300 mm
+
+    # Function y1(r_dv) for the invariant mass cut
+    def y1(r_dv, c1):
+        return np.where(r_dv <= 50, 10, ((c1 - 10) / (700 - 50)) * (r_dv - 50) + 10)
+
+    y1_vals = y1(r_dv_plot, c1)
+    y2 = c2
+
+    # Find intersection point where y1 = y2
+    intersection_rdv = 50 + ((10 - y2) * (700 - 50) / (10 - c1))
+    intersection_index = np.where(r_dv_plot >= intersection_rdv)[0][0]
+
+    # Plotting the invariant mass cut and events
+    plt.figure(figsize=(6, 6))
+
+    # Plot y1 up to the intersection point
+    plt.plot(r_dv_plot[:intersection_index], y1_vals[:intersection_index], linestyle='-', color='black')
+
+    # Plot y2 as a horizontal line from the intersection point onwards
+    plt.plot(r_dv_plot[intersection_index:], [y2]*(len(r_dv_plot) - intersection_index), linestyle='-', color='black')
+
+    # Fill the accepted region
+    plt.fill_between(r_dv_plot[:intersection_index], y1_vals[:intersection_index], y2=15, interpolate=True, color='grey', alpha=0.5)
+    plt.fill_between(r_dv_plot[intersection_index:], y2, y2=15, interpolate=True, color='grey', alpha=0.5)
+
+    # Add red dotted line at y=5 GeV
+    plt.axhline(y=int(invmass_minimum[0]), color='red', linestyle=':', label='$m_{DV} = $' +f' {invmass_minimum}')
+
+    # Plot events as colored squares
+    plt.scatter(r_dv_norm_mm[passed], invariant_masses[passed], marker='s', color='green', label='Passed', s=10)
+    plt.scatter(r_dv_norm_mm[~passed], invariant_masses[~passed], marker='s', color='red', label='Failed', s=10)
+
+    # Plot decorations
+    plt.xlabel('$r_{\\mathrm{DV}}$ [mm]', fontsize=12)
+    plt.ylabel('$m_{\\mathrm{DV}}$ [GeV]', fontsize=12)
+    plt.title(f'Invariant Mass Cut with Events\nMass={mass_hnl[mass_idx]} GeV, Mixing={mixing[mixing_idx]:.1e}', fontsize=14)
+    plt.ylim(0, 15)
+    plt.xlim(0, 300)
+    plt.grid(True)
+    plt.legend()
+
+    plt.tight_layout()
+    save_plot('invariant_mass_cut_histogram')
+    plt.show()
+
+
 
 def compute_analytic_survival(gammas):
     survival_array = np.zeros((len(mass_hnl), len(mixing)))
@@ -867,7 +1201,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     if survival_plots:
         # DV cut heatmap from data
         survival_dv_fraction = calculate_survival_fraction((survival_dv_displaced))
-        plot_survival_parameter_space_regions_nointerpolation(survival_dv_fraction, title='HNL survival (DV cut)', savename='survival_dv', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
+        plot_survival_parameter_space_regions_nointerpolation(survival_dv_fraction, title='Displaced vertex selection criteria efficiency', savename='survival_dv', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
         
         if survival_plots_analysis:
             # DV cut heatmap from analysis (slow)
@@ -958,6 +1292,16 @@ def plotting(momenta, batch, production_arrays, arrays):
     save_array(production_nocuts, 'production_nocuts')
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = f'hnl_production_allcuts_{luminosity}_{invmass_cut_type}')    
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
+    
+    plot_invariant_mass_cut_histogram(
+        momenta, 
+        survival_invmass_displaced, 
+        r_lab, 
+        mass_hnl, 
+        mixing, 
+        production_allcuts,
+    )
+    
     if production_plots:
         plot_parameter_space_region(production_invmass, title='HNL Production (invariant mass cut)', savename = 'hnl_production_invmass')
         save_array(production_invmass, 'production_invmass')

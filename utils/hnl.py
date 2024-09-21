@@ -714,6 +714,7 @@ if __name__ == '__main__':
     branchings = gamma_vals * m_N_lifetimes
 
     # Plotting the result
+    plt.figure(figsize=(6,6))
     plt.plot(m_N_vals, branchings)
     plt.xlabel('m_N')
     plt.ylabel('Decay Width (Gamma)')

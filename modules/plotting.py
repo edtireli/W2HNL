@@ -954,7 +954,7 @@ def plot_invariant_mass_cut_histogram(momenta, survival_invmass_displaced, r_lab
     # Plot decorations
     plt.xlabel('$r_{\\mathrm{DV}}$ [mm]', fontsize=12)
     plt.ylabel('$m_{\\mathrm{DV}}$ [GeV]', fontsize=12)
-    plt.title(f'Invariant Mass Cut with Events\nMass={mass_hnl[mass_idx]} GeV, Mixing={mixing[mixing_idx]:.1e}', fontsize=14)
+    plt.title(f'Invariant Mass Criteria for \nMass={mass_hnl[mass_idx]} GeV, $\Theta_\\tau^2$={mixing[mixing_idx]:.1e}', fontsize=14)
     plt.ylim(0, 15)
     plt.xlim(0, 300)
     plt.grid(True)

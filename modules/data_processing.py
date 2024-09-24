@@ -165,8 +165,6 @@ class ParticleBatch:
                 angles = [0, 0, angle_sq]
         elif np.shape(angle_sq) == (3,):
             angles = angle_sq
-        
-        # Assuming HNL is a class or function you have defined elsewhere for calculating the HNL's lifetime
         tau = HNL(m_HNL, angles, False).computeNLifetime()
 
         return tau
@@ -206,7 +204,7 @@ class ParticleBatch:
         elif cut_type == 'cylinder':
             rho = np.sqrt(rd_lab[:, 0]**2 + rd_lab[:, 1]**2)
             z = np.abs(rd_lab[:, 2])
-            survival_mask_dv[(rd_lab_norm * light_speed() >= dv_min) & (rho <= dv_max_trans) & (z * light_speed() <= dv_max_long)] = True
+            survival_mask_dv[(rd_lab_norm * light_speed() >= dv_min) & (rho * light_speed() <= dv_max_trans) & (z * light_speed() <= dv_max_long)] = True
         else:
             raise ValueError("Invalid cut type specified.")
 
@@ -545,7 +543,7 @@ def survival_invmass_nontrivial(momentum=1):
                 original_batch = ParticleBatch(momentum_invmass_nt)
                 batch_invmass_nt = copy.deepcopy(original_batch)
                 batch_invmass_nt.batch_size = batch_size
-                survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, cut_type_dv, unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+                survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
                 survival_bool_invmass_nt[i, j, :] = survival_mask_invmass_nt
                 pbar.update(1)
 

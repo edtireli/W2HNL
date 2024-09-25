@@ -601,7 +601,7 @@ def mean_from_2d_survival(arr):
     temp_array = [np.mean(i) for i in arr]
     return temp_array
 
-def save_plot(name, dpi=200):
+def save_plot(name, dpi=300):
     current_directory = os.getcwd()                                         # Current path
     data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
     plot_path         = os.path.join(data_path, 'Plots', f'{name}.png')

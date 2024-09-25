@@ -35,28 +35,39 @@ def unit_converter(initial_unit):
     # Perform conversion
     return number[0] / conversion_factors[unit[0]]
 
-def invmass_rdv_efficiency(r_dv, m_dv):
-    r_dv = r_dv * light_speed() * 1e3 # GeV to m
+def invmass_rdv_efficiency(r_dv_array, m_dv_array):
+    r_dv_m = r_dv_array * light_speed() * 1e3  # Convert rd_lab_norm from GeV^-1 to mm
     c1 = -20
     c2 = 3
-    if r_dv <= 50:
-        y1 = 10
-    else:
-        y1 = ((c1 - 10) / (700 - 50)) * (r_dv - 50) + 10
+    
+    y1 = np.where(
+        r_dv_m <= 50,
+        10,
+        ((c1 - 10) / (700 - 50)) * (r_dv_m - 50) + 10
+    )
     y2 = c2
-    return int(m_dv >= y1 and m_dv >= y2)
+    
+    # Apply the conditions vectorized
+    survival_mask = (m_dv_array >= y1) & (m_dv_array >= y2)
+    return survival_mask.astype(bool)
 
 
-def invmass_rdv_efficiency_ee(r_dv, m_dv):
-    r_dv = r_dv * light_speed() * 1e3 # GeV to m
-    c1 =  -127 # defined from external script
-    c2 =   1.5 # defined from external script, lower m_dv limit for large r_dv
-    if r_dv <= 50:
-        y1 = 10
-    else:
-        y1 = ((c1 - 10) / (700 - 50)) * (r_dv - 50) + 10
+def invmass_rdv_efficiency_ee(r_dv_array, m_dv_array):
+    r_dv_m = r_dv_array * light_speed() * 1e3  # Convert rd_lab_norm from GeV^-1 to mm
+    c1 = -127
+    c2 = 1.5
+    
+    y1 = np.where(
+        r_dv_m <= 50,
+        10,
+        ((c1 - 10) / (700 - 50)) * (r_dv_m - 50) + 10
+    )
     y2 = c2
-    return int(m_dv >= y1 and m_dv >= y2)
+    
+    # Apply the conditions vectorized
+    survival_mask = (m_dv_array >= y1) & (m_dv_array >= y2)
+    return survival_mask.astype(bool)
+
 
 
 class ParticleBatch:
@@ -391,37 +402,32 @@ class ParticleBatch:
         delta_phi = np.where(delta_phi < -np.pi, delta_phi + 2*np.pi, delta_phi)
         return delta_phi
     
-    def cut_invmass_nontrivial(self, angle_sq, cut_type, dv_min, dv_max_long, dv_max_trans):
+    def cut_invmass_nontrivial(self, r_lab):
         if self.selected_mass_index is None or self.current_particle_type is None:
             raise ValueError("Both HNL mass and particle type must be selected before applying non-trivial invariant mass cut.")
 
-        p_lab = self.selected_momenta
-        HNLMass = self.mass_hnl[self.selected_mass_index]
-        g_lab = p_lab[:, 0] / HNLMass
-        tau = self.find_tau(HNLMass, angle_sq, flavour_hnl)
-        td_lab = g_lab * np.random.exponential(tau, size=len(p_lab))
-        rd_lab = (p_lab[:, 1:4].T * (td_lab / p_lab[:, 0])).T
+        rd_lab = r_lab
         rd_lab_norm = np.linalg.norm(rd_lab, axis=1)
-        
+
         p_minus = self.momenta_dict['displaced_minus'][self.selected_mass_index]
         p_plus = self.momenta_dict['displaced_plus'][self.selected_mass_index]
         p_sum = p_minus + p_plus
-        
-        with np.errstate(invalid='ignore'):
-            invariant_masses = np.sqrt(np.einsum('ij,ij->i', np.einsum('ij,jk->ik', p_sum, np.diag([1, -1, -1, -1])), p_sum))
-    
 
-        
+        with np.errstate(invalid='ignore'):
+            invariant_masses = np.sqrt(
+                np.maximum(0, p_sum[:, 0]**2 - p_sum[:, 1]**2 - p_sum[:, 2]**2 - p_sum[:, 3]**2)
+            )
+
         # Apply non-trivial invariant mass cut based on rd_lab_norm (distance) and invariant_masses
         if pid_displaced_lepton == 13:
-            survival_mask_invmass_nt = np.array([invmass_rdv_efficiency(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
+            survival_mask_invmass_nt = invmass_rdv_efficiency(rd_lab_norm, invariant_masses)
         elif pid_displaced_lepton == 11:
-            survival_mask_invmass_nt = np.array([invmass_rdv_efficiency_ee(rd, m) for rd, m in zip(rd_lab_norm, invariant_masses)], dtype=bool)
-        
-        # Reshape the result to match the expected dimensions
-        survival_mask_invmass_nt = survival_mask_invmass_nt.reshape((self.batch_size,))
-        
+            survival_mask_invmass_nt = invmass_rdv_efficiency_ee(rd_lab_norm, invariant_masses)
+        else:
+            raise ValueError("Unsupported pid_displaced_lepton. Use 11 for electron or 13 for muon.")
+
         return survival_mask_invmass_nt
+
     
     def __deepcopy__(self, memo):
         # Create a new instance without calling __init__
@@ -526,7 +532,7 @@ def survival_dv(momentum=1, rng_type=1):
         return survival_bool_dv
 
 
-def survival_invmass_nontrivial(momentum=1):
+def survival_invmass_nontrivial(momentum=1, r_labs=None):
     array_name = f"survival_invmass_nontrivial_{cut_type_dv}_{r_min}_{r_max_l}_{r_max_t}"
     loaded_array = load_cut_array_(array_name)
     if loaded_array is not None:
@@ -543,7 +549,7 @@ def survival_invmass_nontrivial(momentum=1):
                 original_batch = ParticleBatch(momentum_invmass_nt)
                 batch_invmass_nt = copy.deepcopy(original_batch)
                 batch_invmass_nt.batch_size = batch_size
-                survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(mix, 'sphere', unit_converter(r_min), unit_converter(r_max_l), unit_converter(r_max_t))
+                survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(r_labs[i,j])
                 survival_bool_invmass_nt[i, j, :] = survival_mask_invmass_nt
                 pbar.update(1)
 
@@ -711,26 +717,19 @@ def data_processing(momenta):
     
     survival_rap_displaced = survival_rap(momentum=momenta)
     
+    survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
+    
+    survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta, rng_type=1)
+        
     if invmass_cut_type == 'nontrivial':
-        survival_invmass_displaced = survival_invmass_nontrivial(momentum=momenta)
+        survival_invmass_displaced = survival_invmass_nontrivial(momentum=momenta, r_labs=r_lab)
     else:
         survival_invmass_displaced = survival_invmass(invmass_minimum, momentum=momenta, experimental_trigger=invmass_experimental)
         
-    survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
-    
-    if not large_data:
-        survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta, rng_type=1)
-        arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
-              np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
-              np.array(survival_deltaR_displaced), 
-              np.array(r_lab), np.array(lifetimes_rest_), np.array(lorentz_factors)
+    arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
+            np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
+            np.array(survival_deltaR_displaced), 
+            np.array(r_lab), np.array(lifetimes_rest_), np.array(lorentz_factors)
      ) # defining a tuple for easier management of survival arrays on main
-    else:
-        survival_dv_displaced = survival_dv(momentum=momenta, rng_type=1)
-        arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
-              np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
-              np.array(survival_deltaR_displaced)
-     ) # defining a tuple for easier management of survival arrays on main
-        
     
     return batch, arrays

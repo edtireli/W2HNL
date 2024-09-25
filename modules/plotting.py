@@ -195,8 +195,8 @@ def plot_survival_2d(survival_array, label_array):
 def save_contour_data(contour_data, name):
     current_directory = os.getcwd()
     data_path = os.path.join(current_directory, 'data', data_folder)
-    contour_data_path = os.path.join(data_path, 'Plots', 'Plot data', f'{name}.pkl')
-    os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)  # Ensure the directory exists
+    contour_data_path = os.path.join(data_path, 'Plots', 'PlotData', f'{name}.pkl')
+    os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True)  # Ensure the directory exists
 
     # Save the contour data using pickle
     with open(contour_data_path, 'wb') as file:
@@ -206,8 +206,8 @@ def save_contour_data(contour_data, name):
 def save_survival_data(survival_data, name):
     current_directory = os.getcwd()
     data_path = os.path.join(current_directory, 'data', data_folder)
-    survival_data_path = os.path.join(data_path, 'Plots', 'Plot data', f'{name}.pkl')
-    os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)  # Ensure the directory exists
+    survival_data_path = os.path.join(data_path, 'Plots', 'PlotData', f'{name}.pkl')
+    os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True)  # Ensure the directory exists
 
     # Save the contour data using pickle
     with open(survival_data_path, 'wb') as file:
@@ -249,8 +249,8 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
 def save_data(mass_grid, mixing_grid, production_grid, filename):
     current_directory = os.getcwd()
     data_path = os.path.join(current_directory, 'data', data_folder)
-    file_path = os.path.join(data_path, 'Plots', 'Plot data', filename)
-    os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)  # Ensure the directory exists
+    file_path = os.path.join(data_path, 'Plots', 'PlotData', filename)
+    os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True)  # Ensure the directory exists
     with open(file_path, 'wb') as f:
         np.save(f, mass_grid)
         np.save(f, mixing_grid)
@@ -605,7 +605,7 @@ def save_plot(name, dpi=200):
     current_directory = os.getcwd()                                         # Current path
     data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
     plot_path         = os.path.join(data_path, 'Plots', f'{name}.png')
-    os.makedirs(os.path.join(data_path, 'Plots'), exist_ok=True) # Making directory if not already exists
+    os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True) # Making directory if not already exists
 
     plt.savefig(plot_path, dpi=dpi)
     print(f"Plot saved to {plot_path}")
@@ -613,8 +613,8 @@ def save_plot(name, dpi=200):
 def save_array(array, name=''):
     current_directory = os.getcwd()                                         # Current path
     data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
-    array_path         = os.path.join(data_path, 'Plots', 'Plot data', f'{name}.npy')
-    os.makedirs(os.path.join(data_path, 'Plots'), exist_ok=True) # Making directory if not already exists
+    array_path         = os.path.join(data_path, 'Plots', 'PlotData', f'{name}.npy')
+    os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True) # Making directory if not already exists
 
     np.save(array_path, array)
 
@@ -1023,7 +1023,7 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
     if save_grid:
         current_directory = os.getcwd()
         data_path = os.path.join(current_directory, 'data', data_folder)
-        save_path = os.path.join(data_path, 'Plots', 'Plot data')
+        save_path = os.path.join(data_path, 'Plots', 'PlotData')
         os.makedirs(save_path, exist_ok=True)  # Ensure the directory exists
         
         data_to_save = (mass_grid, mixing_grid, production_grid, values)

@@ -204,7 +204,7 @@ class ParticleBatch:
         elif cut_type == 'cylinder':
             rho = np.sqrt(rd_lab[:, 0]**2 + rd_lab[:, 1]**2)
             z = np.abs(rd_lab[:, 2])
-            survival_mask_dv[(rd_lab_norm * light_speed() >= dv_min) & (rho * light_speed() <= dv_max_trans) & (z * light_speed() <= dv_max_long)] = True
+            survival_mask_dv[(rd_lab_norm * light_speed() >= dv_min) & (rho * light_speed()<= dv_max_trans) & (z * light_speed() <= dv_max_long)] = True
         else:
             raise ValueError("Invalid cut type specified.")
 
@@ -631,9 +631,9 @@ def survival_deltaR(cut_condition, momentum):
 def save_array(array, name=''):
     current_directory = os.getcwd()                                         # Current path
     data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
-    array_path         = os.path.join(data_path, 'Plots', 'Plot data', f'{name}.npy')
+    array_path         = os.path.join(data_path, 'Plots', 'PlotData', f'{name}.npy')
     os.makedirs(os.path.join(data_path, 'Plots'), exist_ok=True) # Making directory if not already exists
-    os.makedirs(os.path.join(data_path, 'Plots', 'Plot data'), exist_ok=True)
+    os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True)
     np.save(array_path, array)
 
 def print_dashes(text, char='-'):

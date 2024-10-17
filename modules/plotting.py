@@ -1378,8 +1378,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     save_array(production_nocuts, 'production_nocuts')
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = f'hnl_production_allcuts_{luminosity}_{invmass_cut_type}')    
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
-    plot_histogram_rDV_survival_integrated(r_lab, survival_dv_displaced, bin_number=50, r_dv_range=(0, 100))
-    
+  
     if invmass_cut_type == 'nontrivial':
         plot_invariant_mass_cut_histogram(
             momenta, 

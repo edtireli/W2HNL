@@ -1112,8 +1112,8 @@ def plot_simple_histograms(momenta, survival_invmass_displaced, r_lab, mass_hnl,
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
     # Histogram for decay length (r_DV)
-    ax1.hist(r_dv_norm_mm[passed], bins=30, alpha=0.7, label='Passed', color='green', edgecolor='black')
-    ax1.hist(r_dv_norm_mm[~passed], bins=30, alpha=0.7, label='Failed', color='red', edgecolor='black')
+    ax1.hist(r_dv_norm_mm[passed], bins=100, alpha=0.7, label='Passed', color='green', edgecolor='black', log=True)
+    ax1.hist(r_dv_norm_mm[~passed], bins=100, alpha=0.7, label='Failed', color='red', edgecolor='black', log=True)
     ax1.set_xlabel('$r_{\\mathrm{DV}}$ [mm]', fontsize=12)
     ax1.set_ylabel('Number of Events', fontsize=12)
     ax1.set_title('Decay Length ($r_{\\mathrm{DV}}$)', fontsize=14)
@@ -1121,8 +1121,8 @@ def plot_simple_histograms(momenta, survival_invmass_displaced, r_lab, mass_hnl,
     ax1.grid(True)
 
     # Histogram for invariant mass (m_DV)
-    ax2.hist(invariant_masses[passed], bins=30, alpha=0.7, label='Passed', color='green', edgecolor='black')
-    ax2.hist(invariant_masses[~passed], bins=30, alpha=0.7, label='Failed', color='red', edgecolor='black')
+    ax2.hist(invariant_masses[passed], bins=100, alpha=0.7, label='Passed', color='green', edgecolor='black')
+    ax2.hist(invariant_masses[~passed], bins=100, alpha=0.7, label='Failed', color='red', edgecolor='black')
     ax2.set_xlabel('$m_{\\mathrm{DV}}$ [GeV]', fontsize=12)
     ax2.set_ylabel('Number of Events', fontsize=12)
     ax2.set_title('Invariant Mass ($m_{\\mathrm{DV}}$)', fontsize=14)
@@ -1130,7 +1130,7 @@ def plot_simple_histograms(momenta, survival_invmass_displaced, r_lab, mass_hnl,
     ax2.grid(True)
 
     plt.tight_layout()
-    save_plot('simple_histograms')
+    save_plot('invmass_histogram')
     plt.show()
 
 

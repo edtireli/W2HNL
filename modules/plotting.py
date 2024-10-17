@@ -214,17 +214,97 @@ def save_survival_data(survival_data, name):
         pickle.dump(survival_data, file)
     print(f"Survival data saved to {survival_data_path}")    
 
+def plot_histogram_rDV_survival_integrated(r_lab, survival_dv_displaced, bin_number=50, r_dv_range=(0, 300), index_mass=None, index_mixing=None):
+    """
+    Plots a histogram of events as a function of r_DV, with an additional plot
+    showing the percentage of events that survived the DV cuts. It can process 
+    either specific mass and mixing values, or all masses and mixing if no index is supplied.
+
+    Parameters:
+    - r_lab: Array of decay vertex positions with shape (masses, mixings, particles, 3).
+    - survival_dv_displaced: Boolean array indicating which events passed the DV cuts (same shape as r_lab, but without the 3 spatial coordinates).
+    - bin_number: Number of bins for the histogram (default: 50).
+    - r_dv_range: Tuple specifying the range of r_DV (default: (0, 300) mm).
+    - index_mass: (Optional) Index for a specific mass. If None, use all masses.
+    - index_mixing: (Optional) Index for a specific mixing angle. If None, use all mixings.
+    """
+    if index_mass is not None and index_mixing is not None:
+        # Extract decay vertices and survival status for the specified mass and mixing
+        r_dv = r_lab[index_mass, index_mixing, :, :]  # Shape: (n_events, 3)
+        passed_cuts = survival_dv_displaced[index_mass, index_mixing, :]
+    else:
+        # If no specific mass/mixing index is provided, flatten across all masses and mixings
+        r_dv = r_lab.reshape(-1, r_lab.shape[-1])  # Shape: (n_masses * n_mixings * n_events, 3)
+        passed_cuts = survival_dv_displaced.reshape(-1)  # Flatten survival array
+
+    # Calculate the Euclidean norm to get r_DV in mm
+    r_dv_norm = np.linalg.norm(r_dv, axis=1)
+    r_dv_norm_mm = r_dv_norm * 1000  # Convert to mm if needed
+
+    # Calculate histogram for all events
+    all_counts, bins = np.histogram(r_dv_norm_mm, bins=bin_number, range=r_dv_range)
+
+    # Calculate histogram for events that passed the cuts
+    passed_counts, _ = np.histogram(r_dv_norm_mm[passed_cuts], bins=bins)
+
+    # Calculate the percentage of events that passed the cuts
+    percentage_survived = (passed_counts / all_counts) * 100
+
+    # Plotting
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    # Histogram of all events
+    ax1.hist(r_dv_norm_mm, bins=bins, alpha=0.5, label='All Events', color='blue')
+    ax1.hist(r_dv_norm_mm[passed_cuts], bins=bins, alpha=0.5, label='Passed DV Cuts', color='green')
+
+    ax1.set_xlabel('$r_{\\mathrm{DV}}$ [mm]', fontsize=12)
+    ax1.set_ylabel('Event Count', fontsize=12)
+    ax1.legend(loc='upper right')
+
+    # Secondary axis for percentage
+    ax2 = ax1.twinx()
+    ax2.plot(bins[:-1], percentage_survived, color='red', marker='o', label='Survival Percentage')
+    ax2.set_ylabel('Survival Percentage (%)', fontsize=12)
+    ax2.legend(loc='upper left')
+
+    plt.title('Histogram of $r_{DV}$ with Survival Percentage', fontsize=14)
+    plt.tight_layout()
+    plt.show()
+
+from matplotlib.colors import BoundaryNorm
+
 def plot_parameter_space_region(production_allcuts, title='', savename=''):
     plt.figure(figsize=(10, 6))
+
+    # Assuming mass_hnl and mixing are already defined in the scope
     X, Y = np.meshgrid(mass_hnl, mixing)
 
-    cmap = plt.get_cmap('viridis')
-    mesh = plt.pcolormesh(X, Y, production_allcuts.T, cmap=cmap, shading='auto')
-    plt.colorbar(mesh, label='Production')
+    # Handle NaN or Inf values by replacing them
+    production_allcuts = np.nan_to_num(production_allcuts, nan=0.0, posinf=np.max(production_allcuts), neginf=0.0)
 
-    # Draw contours around regions where production exceeds the minimum thresholds
+    # Define fixed levels and ensure they are strictly monotonically increasing
+    levels = sorted([0, 1, 2, 3, 4, 5, 10, 100, 1000, np.max(production_allcuts)])
+
+    # Safeguard against levels being identical or having NaN/Inf
+    levels = np.unique(levels)  # Ensure unique values
+    if len(levels) < 2:
+        levels = [0, 1]  # Fallback to default if there's any issue
+
+    cmap = plt.get_cmap('Set1', len(levels) - 1)
+
+    # Create BoundaryNorm to map the colormap to your levels
+    norm = BoundaryNorm(levels, ncolors=cmap.N)
+
+    # Plot using pcolormesh with discrete colormap
+    mesh = plt.pcolormesh(X, Y, production_allcuts.T, cmap=cmap, shading='auto', norm=norm)
+
+    # Add colorbar with fixed levels
+    cbar = plt.colorbar(mesh, ticks=levels[:-1])  # Remove np.inf from the ticks
+    cbar.set_label('Production')
+
+    # Draw contours for production thresholds
     if production_minimum is not None:
-        mask_min = production_allcuts.T >= production_minimum  # Transpose to align dimensions
+        mask_min = production_allcuts.T >= production_minimum
         plt.contour(X, Y, mask_min.astype(int), levels=[0.5], colors='red', linewidths=1.5)
 
     if production_minimum_secondary is not None:
@@ -245,6 +325,10 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
     # Save plot if savename is provided
     if savename:
         save_plot(savename)
+
+    plt.show()
+
+
 
 def save_data(mass_grid, mixing_grid, production_grid, filename):
     current_directory = os.getcwd()
@@ -1008,7 +1092,6 @@ def find_best_survival_indices(survival_dv):
 
     return index_mass, index_mixing
 
-
 def plot_production_heatmap(production, title='Production Rates', savename='', save_grid=False):
     # Create a meshgrid for interpolation
     mass_grid, mixing_grid = np.meshgrid(np.linspace(min(mass_hnl), max(mass_hnl), 100),
@@ -1020,6 +1103,7 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
     
     # Interpolate the production values onto the meshgrid
     production_grid = griddata(points, values, (mass_grid, mixing_grid), method='linear')
+    
     if save_grid:
         current_directory = os.getcwd()
         data_path = os.path.join(current_directory, 'data', data_folder)
@@ -1033,13 +1117,18 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
 
     plt.figure(figsize=(10, 6))
     
-    # Define levels for contourf based on the range of production values
-    levels = np.linspace(values.min(), values.max(), 100)
+    # Define discrete levels for contourf
+    n_levels = 10  # Set the number of discrete levels you want
+    levels = np.linspace(values.min(), values.max(), n_levels)
     
-    # Create a filled contour plot with interpolated production data
-    contour_filled = plt.contourf(mass_grid, mixing_grid, production_grid, levels=levels, cmap='viridis', extend='both')
+    # Use a discrete colormap with 'Set1' or 'tab10', or any other discrete colormap
+    cmap = plt.get_cmap('Set1', n_levels)
+    
+    # Create a filled contour plot with discrete levels and discrete colormap
+    contour_filled = plt.contourf(mass_grid, mixing_grid, production_grid, levels=levels, cmap=cmap, extend='both')
     plt.colorbar(contour_filled, label='Production Rate')
-    if save_grid==True:
+    
+    if save_grid:
         constants = [1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1]  
 
         # Plot lines for each constant
@@ -1047,6 +1136,7 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
             mass_range = np.linspace(min(mass_hnl), max(mass_hnl), 500)
             mixing_for_constant = np.sqrt(C / mass_range**6)
             plt.plot(mass_range, mixing_for_constant, '--', color='r', label=f'C={C:.1e}', alpha=0.5)
+    
     plt.xscale('linear')
     plt.yscale('log')
     plt.xlabel('HNL Mass (GeV)')
@@ -1058,14 +1148,10 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
 
     plt.grid(alpha=0.25)
     
-    # Highlight specific regions or levels if needed
-    # plt.contour(mass_grid, mixing_grid, production_grid, levels=[threshold], colors='red', linewidths=2)
-    
     if savename:
         save_plot(savename)  
     
     plt.show()
-
 
 def calculate_survival_fraction(survival_array):
     """
@@ -1292,6 +1378,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     save_array(production_nocuts, 'production_nocuts')
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = f'hnl_production_allcuts_{luminosity}_{invmass_cut_type}')    
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
+    plot_histogram_rDV_survival_integrated(r_lab, survival_dv_displaced, bin_number=50, r_dv_range=(0, 100))
     
     if invmass_cut_type == 'nontrivial':
         plot_invariant_mass_cut_histogram(

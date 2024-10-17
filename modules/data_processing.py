@@ -414,10 +414,10 @@ class ParticleBatch:
         p_sum = p_minus + p_plus
 
         with np.errstate(invalid='ignore'):
+            m2 = p_sum[:, 0]**2 - p_sum[:, 1]**2 - p_sum[:, 2]**2 - p_sum[:, 3]**2
             invariant_masses = np.sqrt(
                 np.maximum(0, p_sum[:, 0]**2 - p_sum[:, 1]**2 - p_sum[:, 2]**2 - p_sum[:, 3]**2)
             )
-
         # Apply non-trivial invariant mass cut based on rd_lab_norm (distance) and invariant_masses
         if pid_displaced_lepton == 13:
             survival_mask_invmass_nt = invmass_rdv_efficiency(rd_lab_norm, invariant_masses)
@@ -448,6 +448,9 @@ def survival_pT(momentum):
     if loaded_array is not None:
         return loaded_array
     
+    pt_minus = []
+    pt_plus = []
+
     survival_bool_all_masses_pT_minus = []
     survival_bool_all_masses_pT_plus = []
     momentum_pT = copy.deepcopy(momentum)
@@ -458,21 +461,30 @@ def survival_pT(momentum):
         batch_pT_plus = copy.deepcopy(original_batch)
         
         batch_pT_minus.mass(mass).particle('displaced_minus')
+        pT_values_minus = batch_pT_minus.pT()  # Get pT values
         survival_mask_pT_minus = batch_pT_minus.cut_pT(pT_minimum)
         survival_bool_all_masses_pT_minus.append(survival_mask_pT_minus)
-        
+        pt_minus.append(pT_values_minus)  # Save actual pT values
+
         batch_pT_plus.mass(mass).particle('displaced_plus')
+        pT_values_plus = batch_pT_plus.pT()  # Get pT values
         survival_mask_pT_plus = batch_pT_plus.cut_pT(pT_minimum)
         survival_bool_all_masses_pT_plus.append(survival_mask_pT_plus)
+        pt_plus.append(pT_values_plus)  # Save actual pT values
 
     survival_bool_all_masses_pT_minus = np.array(survival_bool_all_masses_pT_minus)
     survival_bool_all_masses_pT_plus = np.array(survival_bool_all_masses_pT_plus)
     
     combined_survival_pT = survival_bool_all_masses_pT_minus * survival_bool_all_masses_pT_plus
     
+    # Save pT arrays
+    save_array(pt_minus, 'pT_minus_values')
+    save_array(pt_plus, 'pT_plus_values')
+    
     save_cut_array1(combined_survival_pT, array_name)
     
     return combined_survival_pT
+
 
 from multiprocessing import Pool
 
@@ -520,7 +532,6 @@ def survival_dv(momentum=1, rng_type=1):
                 lorentz_factors[i, j, :] = g_lab
 
     # Save each array separately, specifying 'float16' where appropriate.
-    print('[Saving data] Please be patient...')
     save_cut_array(survival_bool_dv, f"{array_name_base}_survival_bool_dv")
     save_cut_array(rd_labs, f"{array_name_base}_rd_labs")
     save_cut_array(lifetimes_rest, f"{array_name_base}_lifetimes_rest")
@@ -531,7 +542,6 @@ def survival_dv(momentum=1, rng_type=1):
     else:
         return survival_bool_dv
 
-
 def survival_invmass_nontrivial(momentum=1, r_labs=None):
     array_name = f"survival_invmass_nontrivial_{cut_type_dv}_{r_min}_{r_max_l}_{r_max_t}"
     loaded_array = load_cut_array_(array_name)
@@ -539,32 +549,66 @@ def survival_invmass_nontrivial(momentum=1, r_labs=None):
         print('[Loaded cut] Invariant mass')
         return loaded_array
     
+    invmass_nontrivial_values = []  # To store actual invariant mass values
     survival_bool_invmass_nt = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
     momentum_invmass_nt = copy.deepcopy(momentum)
     total = len(mass_hnl) * len(mixing)
 
     with tqdm(total=total, desc="[Computing cut] Invariant mass      ") as pbar:
         for i, mass in enumerate(mass_hnl):
-            for j, mix in enumerate(mixing):
-                original_batch = ParticleBatch(momentum_invmass_nt)
-                batch_invmass_nt = copy.deepcopy(original_batch)
-                batch_invmass_nt.batch_size = batch_size
-                survival_mask_invmass_nt = batch_invmass_nt.mass(mass).particle('hnl').cut_invmass_nontrivial(r_labs[i,j])
-                survival_bool_invmass_nt[i, j, :] = survival_mask_invmass_nt
-                pbar.update(1)
+            # Compute invariant masses once per mass (since they don't depend on mixing)
+            original_batch = ParticleBatch(momentum_invmass_nt)
+            batch_invmass_nt = copy.deepcopy(original_batch)
+            batch_invmass_nt.batch_size = batch_size
+            batch_invmass_nt.mass(mass).particle('hnl')
+            
+            # Compute the actual invariant masses
+            p_minus = batch_invmass_nt.momenta_dict['displaced_minus'][batch_invmass_nt.selected_mass_index]
+            p_plus = batch_invmass_nt.momenta_dict['displaced_plus'][batch_invmass_nt.selected_mass_index]
+            p_sum = p_minus + p_plus
+            with np.errstate(invalid='ignore'):
+                invariant_masses = np.sqrt(
+                    np.maximum(0, p_sum[:, 0]**2 - p_sum[:, 1]**2 - p_sum[:, 2]**2 - p_sum[:, 3]**2)
+                )
+            # Append the computed invariant mass values
+            if i == 0:
+                # Initialize the array on the first iteration
+                invmass_nontrivial_values = invariant_masses
+            else:
+                invmass_nontrivial_values = np.vstack((invmass_nontrivial_values, invariant_masses))
 
+            for j, mix in enumerate(mixing):
+                rd_lab = r_labs[i, j]  # Shape: (batch_size, 3)
+                rd_lab_norm = np.linalg.norm(rd_lab, axis=1)  # Shape: (batch_size,)
+                
+                # Apply non-trivial invariant mass cut
+                if pid_displaced_lepton == 13:
+                    survival_bool_invmass_nt[i, j, :] = invmass_rdv_efficiency(rd_lab_norm, invariant_masses)
+                elif pid_displaced_lepton == 11:
+                    survival_bool_invmass_nt[i, j, :] = invmass_rdv_efficiency_ee(rd_lab_norm, invariant_masses)
+                else:
+                    raise ValueError("Unsupported pid_displaced_lepton. Use 11 for electron or 13 for muon.")
+                
+                pbar.update(1)
+    
+    # Save the computed invariant mass values
+    save_array(invmass_nontrivial_values, 'invmass_nontrivial_values')
+    
     save_cut_array1(survival_bool_invmass_nt, array_name)
     return survival_bool_invmass_nt
 
 
+
 def survival_rap(momentum):
-    # Define a dynamic name based on conditions/parameters you might want to include
     array_name = f"survival_rap_{pseudorapidity_maximum}"
     loaded_array = load_cut_array_(array_name)
     if loaded_array is not None:
         print('[Loaded cut] Pseudorapidity')
         return loaded_array
     
+    eta_minus = []
+    eta_plus = []
+
     survival_bool_all_masses_rap_minus = []
     survival_bool_all_masses_rap_plus = []
     momentum_rap = copy.deepcopy(momentum)
@@ -576,20 +620,27 @@ def survival_rap(momentum):
 
         # Process 'displaced_minus'
         batch_rap_minus = original_batch_minus.mass(mass).particle('displaced_minus')
+        eta_values_minus = batch_rap_minus.eta()  # Get eta values
         survival_mask_minus = batch_rap_minus.cut_rap()
         survival_bool_all_masses_rap_minus.append(survival_mask_minus)
-        
+        eta_minus.append(eta_values_minus)  # Save actual eta values
+
         # Process 'displaced_plus'
         batch_rap_plus = original_batch_plus.mass(mass).particle('displaced_plus')
+        eta_values_plus = batch_rap_plus.eta()  # Get eta values
         survival_mask_plus = batch_rap_plus.cut_rap()
         survival_bool_all_masses_rap_plus.append(survival_mask_plus)
+        eta_plus.append(eta_values_plus)  # Save actual eta values
 
     survival_bool_all_masses_rap_minus = np.array(survival_bool_all_masses_rap_minus)
     survival_bool_all_masses_rap_plus = np.array(survival_bool_all_masses_rap_plus)
 
     combined_survival_rap = survival_bool_all_masses_rap_minus * survival_bool_all_masses_rap_plus
 
-    # Save the combined result before returning
+    # Save eta arrays
+    save_array(eta_minus, 'eta_minus_values')
+    save_array(eta_plus, 'eta_plus_values')
+
     save_cut_array1(combined_survival_rap, array_name)
     
     return combined_survival_rap
@@ -601,17 +652,48 @@ def survival_invmass(cut_condition, momentum, experimental_trigger=False):
         print('[Loaded cut] Invariant mass')
         return loaded_array
     
+    # Extract the numeric value from the cut_condition string (e.g., '5 GeV')
+    if isinstance(cut_condition, str):
+        cut_value = float(cut_condition.split()[0])  # Extract numerical value
+    else:
+        cut_value = float(cut_condition)
+
+    invmass_values = []  # To store actual invariant mass values
     survival_bool_all_masses_invmass = []
     momentum_invmass = copy.deepcopy(momentum)
+    
     for mass in tqdm(mass_hnl, desc="[Computing cut] Invariant mass      "):
         original_batch = ParticleBatch(momentum_invmass)
         batch_invmass = copy.deepcopy(original_batch)
-        survival_mask_invmass = batch_invmass.mass(mass).cut_invmass(cut_condition, experimental=experimental_trigger)
+        
+        # Retrieve momenta of 'displaced_minus' and 'displaced_plus' particles
+        p_minus = batch_invmass.mass(mass).particle('displaced_minus').selected_momenta
+        p_plus = batch_invmass.mass(mass).particle('displaced_plus').selected_momenta
+
+        # Compute the sum of the 4-momenta for the invariant mass calculation
+        p_sum = p_minus + p_plus
+
+        # Compute the actual invariant mass (not boolean)
+        with np.errstate(invalid='ignore'):
+            invmass_values_batch = np.sqrt(np.maximum(0, p_sum[:, 0]**2 - p_sum[:, 1]**2 - p_sum[:, 2]**2 - p_sum[:, 3]**2))
+        
+        # Append the computed invariant mass values
+        invmass_values.append(invmass_values_batch)
+        
+        # Apply the cut condition to create a boolean mask
+        survival_mask_invmass = invmass_values_batch >= cut_value
         survival_bool_all_masses_invmass.append(survival_mask_invmass)
-    
+
     survival_bool_all_masses_invmass = np.array(survival_bool_all_masses_invmass)
+    
+    # Save the actual invariant mass values
+    save_array(invmass_values, 'invmass_values')
+
+    # Save the boolean survival mask as usual
     save_cut_array1(survival_bool_all_masses_invmass, array_name)
+    
     return survival_bool_all_masses_invmass
+
 
 
 def survival_deltaR(cut_condition, momentum):
@@ -733,3 +815,4 @@ def data_processing(momenta):
      ) # defining a tuple for easier management of survival arrays on main
     
     return batch, arrays
+    

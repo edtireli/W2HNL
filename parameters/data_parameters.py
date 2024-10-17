@@ -9,7 +9,7 @@ data_type = 'LHE' # Either "HEPMC" or "LHE" or "ROOT" format
 mass_hnl = [i*0.1 for i in range(2,101)] # HNL masses from data in GeV
 
 flavour_hnl = 3 # 1=e, 2=mu, 3=tau
-batch_size = 10000 # Number of events generated per run (mass) in MadGraph
+batch_size = 100 # Number of events generated per run (mass) in MadGraph
 MG_N_Width = 1e-5 # The HNL decay width within MG (parameter card)
 
 # HEPMC PIDs (positive lepton PID = anti-particle)

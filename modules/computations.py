@@ -81,6 +81,14 @@ def computations(momenta, arrays):
     print_dashes('Computing HNL production')
     if not large_data:
         survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
+        save_array(survival_dv_displaced, name='survival_dv_displaced')
+        save_array(survival_pT_displaced, name='survival_pT_displaced')
+        save_array(survival_rap_displaced, name='survival_rap_displaced')
+        save_array(survival_invmass_displaced, name='survival_invmass_displaced')
+        save_array(survival_deltaR_displaced, name='survival_deltaR_displaced')
+        save_array(r_lab, name='r_labs')
+        save_array(lifetimes_rest, name='lifetimes_rest')
+        save_array(lorentz_factors, name='lorentz_factors')
     else:
         survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
 
@@ -93,12 +101,12 @@ def computations(momenta, arrays):
 
     # Calculate initial production rates before any cuts
     experimental_sigma = 2.05e7  # fb corresponding to 20.64nb from https://arxiv.org/pdf/1603.09222.pdf
-    if pid_displaced_lepton == 13:
+    if abs(pid_displaced_lepton) == 13:
         cross_sections = experimental_sigma * np.array([HNL(m, [0,0,1], False).findBranchingRatio('N -> mu- mu+ nu_tau') for m in mass_hnl])
     else:
         cross_sections = experimental_sigma * np.array([HNL(m, [0,0,1], False).findBranchingRatio('N -> e- e+ nu_tau') for m in mass_hnl])
     production_nocuts = rescaling * luminosity * cross_sections[:, np.newaxis] * np.array(mixing)[np.newaxis, :]  # Shape now (mass, mixing)
-
+    save_array(production_nocuts, name='production_nocuts')
 
 
     # Compute production rates adjusted for different cuts

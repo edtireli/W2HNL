@@ -20,7 +20,7 @@ luminosity = 300 # 1/fb
 production_minimum   = 3 # The minimum number of HNLs produced within the parameter region to consider it a success (production_minimum = 3 for 95% CL)
 production_minimum_secondary = 10 # A secondary production minimum
 
-mixing = np.logspace(0,-8,20)
+mixing = np.logspace(0,-8,200)
 
 rng_seed = 'honeydew' # RNG seed
 

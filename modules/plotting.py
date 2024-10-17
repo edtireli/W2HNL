@@ -1048,6 +1048,92 @@ def plot_invariant_mass_cut_histogram(momenta, survival_invmass_displaced, r_lab
     save_plot('invariant_mass_cut_histogram')
     plt.show()
 
+def plot_simple_histograms(momenta, survival_invmass_displaced, r_lab, mass_hnl, mixing, production_allcuts):
+    """
+    Plots two side-by-side histograms: one for decay length (r_DV) and one for invariant mass (m_DV),
+    showing passed and failed events in green and red, respectively.
+    """
+    # Find mixing indices where production_allcuts >= 3 for any mass
+    production_mask = np.any(production_allcuts >= 3, axis=0)
+    mixing_indices_with_production = np.where(production_mask)[0]
+
+    if len(mixing_indices_with_production) == 0:
+        print("No mixing values with production >= 3 found.")
+        return
+
+    # Find the mixing index with the lowest mixing value among those
+    mixing_values_with_production = np.array(mixing)[mixing_indices_with_production]
+    min_mixing_idx_in_list = np.argmin(mixing_values_with_production)
+    mixing_idx = mixing_indices_with_production[min_mixing_idx_in_list]
+
+    # For this mixing_idx, find mass indices where production_allcuts >= 3
+    mass_indices = np.where(production_allcuts[:, mixing_idx] >= 3)[0]
+
+    # Get production values for these mass indices
+    production_values = production_allcuts[mass_indices, mixing_idx]
+
+    # Select mass index with maximum production
+    max_production_idx_in_list = np.argmax(production_values)
+    mass_idx = mass_indices[max_production_idx_in_list]
+
+    # Get decay positions and compute decay lengths
+    r_dv = r_lab[mass_idx, mixing_idx, :, :]  # Shape: (n_events, 3)
+    r_dv_norm = np.linalg.norm(r_dv, axis=1)
+    r_dv_norm_m = r_dv_norm * light_speed()  # Convert to meters
+    r_dv_norm_mm = r_dv_norm_m * 1000  # Convert to mm
+
+    # Get momenta of the displaced particles
+    batch = ParticleBatch(momenta)
+    batch.mass(mass_hnl[mass_idx])  # Select the mass
+
+    batch.particle('displaced_minus')
+    E_minus = batch.E()
+    px_minus = batch.px()
+    py_minus = batch.py()
+    pz_minus = batch.pz()
+
+    batch.particle('displaced_plus')
+    E_plus = batch.E()
+    px_plus = batch.px()
+    py_plus = batch.py()
+    pz_plus = batch.pz()
+
+    # Compute invariant masses of the events
+    E_total = E_minus + E_plus
+    px_total = px_minus + px_plus
+    py_total = py_minus + py_plus
+    pz_total = pz_minus + pz_plus
+    invariant_masses = np.sqrt(np.maximum(0, E_total**2 - px_total**2 - py_total**2 - pz_total**2))
+
+    # Get survival status for the invariant mass cut
+    passed = survival_invmass_displaced[mass_idx, mixing_idx, :]
+
+    # Create side-by-side histograms for r_DV and m_DV
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+
+    # Histogram for decay length (r_DV)
+    ax1.hist(r_dv_norm_mm[passed], bins=30, alpha=0.7, label='Passed', color='green', edgecolor='black')
+    ax1.hist(r_dv_norm_mm[~passed], bins=30, alpha=0.7, label='Failed', color='red', edgecolor='black')
+    ax1.set_xlabel('$r_{\\mathrm{DV}}$ [mm]', fontsize=12)
+    ax1.set_ylabel('Number of Events', fontsize=12)
+    ax1.set_title('Decay Length ($r_{\\mathrm{DV}}$)', fontsize=14)
+    ax1.legend()
+    ax1.grid(True)
+
+    # Histogram for invariant mass (m_DV)
+    ax2.hist(invariant_masses[passed], bins=30, alpha=0.7, label='Passed', color='green', edgecolor='black')
+    ax2.hist(invariant_masses[~passed], bins=30, alpha=0.7, label='Failed', color='red', edgecolor='black')
+    ax2.set_xlabel('$m_{\\mathrm{DV}}$ [GeV]', fontsize=12)
+    ax2.set_ylabel('Number of Events', fontsize=12)
+    ax2.set_title('Invariant Mass ($m_{\\mathrm{DV}}$)', fontsize=14)
+    ax2.legend()
+    ax2.grid(True)
+
+    plt.tight_layout()
+    save_plot('simple_histograms')
+    plt.show()
+
+
 
 
 def compute_analytic_survival(gammas):
@@ -1378,9 +1464,17 @@ def plotting(momenta, batch, production_arrays, arrays):
     save_array(production_nocuts, 'production_nocuts')
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = f'hnl_production_allcuts_{luminosity}_{invmass_cut_type}')    
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
-  
+    
     if invmass_cut_type == 'nontrivial':
         plot_invariant_mass_cut_histogram(
+            momenta, 
+            survival_invmass_displaced, 
+            r_lab, 
+            mass_hnl, 
+            mixing, 
+            production_allcuts,
+        )
+        plot_simple_histograms(
             momenta, 
             survival_invmass_displaced, 
             r_lab, 

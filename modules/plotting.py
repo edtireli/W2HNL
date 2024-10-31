@@ -317,6 +317,8 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
     plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
     plt.title(title)
+    plt.axvline(3, linestyle='--', color='k')
+    plt.axvline(1.75, linestyle='--', color='k')
     plt.grid(alpha=0.25)
 
     # Connect the key press event to the handler
@@ -826,6 +828,7 @@ def plot_invariant_mass_cut_histogram_heatmap(momenta, survival_invmass_displace
 
     # For this mixing_idx, find mass indices where production_allcuts >= 3
     mass_indices = np.where(production_allcuts[:, mixing_idx] >= 3)[0]
+    print(mass_indices, mixing_idx)
 
     # Get production values for these mass indices
     production_values = production_allcuts[mass_indices, mixing_idx]
@@ -950,7 +953,7 @@ def plot_invariant_mass_cut_histogram(momenta, survival_invmass_displaced, r_lab
 
     # For this mixing_idx, find mass indices where production_allcuts >= 3
     mass_indices = np.where(production_allcuts[:, mixing_idx] >= 3)[0]
-
+    print(mass_indices, mixing_idx)
     # Get production values for these mass indices
     production_values = production_allcuts[mass_indices, mixing_idx]
 
@@ -1027,7 +1030,6 @@ def plot_invariant_mass_cut_histogram(momenta, survival_invmass_displaced, r_lab
     # Fill the accepted region
     plt.fill_between(r_dv_plot[:intersection_index], y1_vals[:intersection_index], y2=15, interpolate=True, color='grey', alpha=0.5)
     plt.fill_between(r_dv_plot[intersection_index:], y2, y2=15, interpolate=True, color='grey', alpha=0.5)
-
     # Add red dotted line at y=5 GeV
     plt.axhline(y=int(invmass_minimum[0]), color='red', linestyle=':', label='$m_{DV} = $' +f' {invmass_minimum}')
 
@@ -1465,8 +1467,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = f'hnl_production_allcuts_{luminosity}_{invmass_cut_type}')    
     plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
     
-    if invmass_cut_type == 'nontrivial':
-        plot_invariant_mass_cut_histogram(
+    plot_invariant_mass_cut_histogram(
             momenta, 
             survival_invmass_displaced, 
             r_lab, 
@@ -1474,6 +1475,7 @@ def plotting(momenta, batch, production_arrays, arrays):
             mixing, 
             production_allcuts,
         )
+    if invmass_cut_type == 'nontrivial':
         plot_simple_histograms(
             momenta, 
             survival_invmass_displaced, 

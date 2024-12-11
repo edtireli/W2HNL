@@ -571,16 +571,18 @@ def plot_survival_parameter_space_regions_nointerpolation(
     # Define discrete levels
     levels = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 
               0.6, 0.7, 0.8, 0.9, 1.0]
-    n_levels = len(levels)
-    
+    n_levels = len(levels) - 1  # Correct number of bins
+
     # Create a discrete colormap
-    cmap = plt.get_cmap('Set3', n_levels)  # n_levels-1 colors
-    norm = BoundaryNorm(boundaries=levels, ncolors=n_levels, extend='both')
-    
+    cmap = plt.get_cmap('Set3', n_levels)  # Use n_levels instead of len(levels)
+
+    # Define normalization based on discrete levels without 'extend'
+    norm = BoundaryNorm(boundaries=levels, ncolors=n_levels, clip=True)
+
     # Use pcolormesh with the defined norm
     mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, norm=norm, shading='auto')
-    
-    # Create colorbar with ticks at the level boundaries
+
+    # Create colorbar with ticks at the level boundaries and extend='both'
     cbar = plt.colorbar(mesh, ticks=levels, boundaries=levels, extend='both')
     cbar.set_label('Survival Fraction')
 
@@ -683,7 +685,7 @@ def plot_survival_parameter_space_regions_nointerpolation(
     # Set scales and labels
     plt.xscale('linear')
     plt.yscale('log')
-    plt.xlim(0,16)
+    plt.xlim(0, 16)
     plt.ylim(min(mixing_array), max(mixing_array))
     plt.xlabel('m$_N$ [GeV]', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)

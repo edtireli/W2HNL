@@ -448,8 +448,11 @@ def survival_pT(momentum):
     if loaded_array is not None:
         return loaded_array
     
+    pt_boson = []
     pt_minus = []
     pt_plus = []
+    pt_hnl = []
+    pt_vt = []
 
     survival_bool_all_masses_pT_minus = []
     survival_bool_all_masses_pT_plus = []
@@ -459,6 +462,7 @@ def survival_pT(momentum):
         original_batch = ParticleBatch(momentum_pT)
         batch_pT_minus = copy.deepcopy(original_batch)
         batch_pT_plus = copy.deepcopy(original_batch)
+        batch_pT_parents = copy.deepcopy(original_batch)
         
         batch_pT_minus.mass(mass).particle('displaced_minus')
         pT_values_minus = batch_pT_minus.pT()  # Get pT values
@@ -472,6 +476,18 @@ def survival_pT(momentum):
         survival_bool_all_masses_pT_plus.append(survival_mask_pT_plus)
         pt_plus.append(pT_values_plus)  # Save actual pT values
 
+        batch_pT_parents.mass(mass).particle('hnl')
+        pT_values_hnl = batch_pT_parents.pT()  # Get pT values
+        pt_hnl.append(pT_values_hnl)  # Save actual pT values
+
+        batch_pT_parents.mass(mass).particle('neutrino')
+        pT_values_neutrino = batch_pT_parents.pT()  # Get pT values
+        pt_vt.append(pT_values_neutrino)  # Save actual pT values
+
+        batch_pT_parents.mass(mass).particle('boson')
+        pT_values_boson = batch_pT_parents.pT()  # Get pT values
+        pt_boson.append(pT_values_boson)  # Save actual pT values
+
     survival_bool_all_masses_pT_minus = np.array(survival_bool_all_masses_pT_minus)
     survival_bool_all_masses_pT_plus = np.array(survival_bool_all_masses_pT_plus)
     
@@ -480,6 +496,8 @@ def survival_pT(momentum):
     # Save pT arrays
     save_array(pt_minus, 'pT_minus_values')
     save_array(pt_plus, 'pT_plus_values')
+    save_array(pt_hnl, 'pT_HNL_values')
+    save_array(pt_vt, 'pT_nu_values')
     
     save_cut_array1(combined_survival_pT, array_name)
     
@@ -777,6 +795,8 @@ def load_cut_array_(name=''):
 def load_cut_array(name=''):
     current_directory = os.getcwd()
     data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    if not os.path.exists(data_path):
+        os.makedirs(data_path)
     array_path = os.path.join(data_path, f'{name}.npz')
     if os.path.exists(array_path):
         data = np.load(array_path)

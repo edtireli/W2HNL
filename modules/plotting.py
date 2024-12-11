@@ -290,7 +290,7 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
     if len(levels) < 2:
         levels = [0, 1]  # Fallback to default if there's any issue
 
-    cmap = plt.get_cmap('Set1', len(levels) - 1)
+    cmap = plt.get_cmap('Set3', len(levels) - 1)
 
     # Create BoundaryNorm to map the colormap to your levels
     norm = BoundaryNorm(levels, ncolors=cmap.N)
@@ -314,11 +314,12 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
     plt.xscale('linear')
     plt.yscale('log')
     plt.ylim(min(mixing), max(mixing))
-    plt.xlabel('HNL Mass, $M_N$ (GeV)', size=12)
+    plt.xlim(0,16)
+    plt.xlabel('m$_N$ [GeV]', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
-    plt.title(title)
-    plt.axvline(3, linestyle='--', color='k')
-    plt.axvline(1.75, linestyle='--', color='k')
+    #plt.title(title)
+    #plt.axvline(3, linestyle='--', color='k')
+    #plt.axvline(1.75, linestyle='--', color='k')
     plt.grid(alpha=0.25)
 
     # Connect the key press event to the handler
@@ -682,10 +683,11 @@ def plot_survival_parameter_space_regions_nointerpolation(
     # Set scales and labels
     plt.xscale('linear')
     plt.yscale('log')
+    plt.xlim(0,16)
     plt.ylim(min(mixing_array), max(mixing_array))
-    plt.xlabel('$M_N$ [GeV]', size=12)
+    plt.xlabel('m$_N$ [GeV]', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
-    plt.title(title)
+    #plt.title(title)
     plt.grid(alpha=0.25)
 
     # Connect the key press event to the handler (if interactive features are needed)
@@ -1226,7 +1228,7 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
     levels = np.linspace(values.min(), values.max(), n_levels)
     
     # Use a discrete colormap with 'Set1' or 'tab10', or any other discrete colormap
-    cmap = plt.get_cmap('Set1', n_levels)
+    cmap = plt.get_cmap('Set3', n_levels)
     
     # Create a filled contour plot with discrete levels and discrete colormap
     contour_filled = plt.contourf(mass_grid, mixing_grid, production_grid, levels=levels, cmap=cmap, extend='both')
@@ -1243,9 +1245,10 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
     
     plt.xscale('linear')
     plt.yscale('log')
-    plt.xlabel('HNL Mass (GeV)')
+    plt.xlabel('m$_N$ (GeV)')
     plt.ylabel('Mixing')
-    plt.title(title)
+    plt.xlim(0,16)
+    #plt.title(title)
     
     # Connect the key press event to the handler
     plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)

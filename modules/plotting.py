@@ -571,7 +571,7 @@ def plot_survival_parameter_space_regions_nointerpolation(
 
     if plot_mass_mixing_lines:
         # Define constants C representing c*tau*gamma in meters
-        constants = [1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100, 1e3, 1e4]
+        constants = [1e-3, 1e-2, 1e-1, 1, 10, 100, 1e3]
         c = light_speed()  # Speed of light in meters per second
 
         # Precompute tau values at mixing parameter Theta_tau^2 = 1
@@ -659,7 +659,7 @@ def plot_survival_parameter_space_regions_nointerpolation(
                 fontsize=8,
                 ha='center',
                 va='center',
-                rotation=angle_deg - 5,
+                rotation=angle_deg - 15,
                 rotation_mode='anchor',
                 alpha=0.75
             )
@@ -1375,7 +1375,7 @@ def plotting(momenta, batch, production_arrays, arrays):
     if survival_plots:
         # DV cut heatmap from data
         survival_dv_fraction = calculate_survival_fraction((survival_dv_displaced))
-        plot_survival_parameter_space_regions_nointerpolation(survival_dv_fraction, title='Displaced vertex selection criteria efficiency', savename='survival_dv', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
+        plot_survival_parameter_space_regions_nointerpolation(survival_dv_fraction, title=None, savename='survival_dv', plot_mass_mixing_lines = True, gammas = average_lorentz_factors)
         
         if survival_plots_analysis:
             # DV cut heatmap from analysis (slow)

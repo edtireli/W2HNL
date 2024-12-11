@@ -535,6 +535,10 @@ import matplotlib.pyplot as plt
 # - on_key_press: function to handle key press events (if used)
 # - save_plot: function to save the plot (if used)
 
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import BoundaryNorm, ListedColormap
+
 def plot_survival_parameter_space_regions_nointerpolation(
     survival_fraction,
     labels=None,
@@ -563,13 +567,21 @@ def plot_survival_parameter_space_regions_nointerpolation(
 
     X, Y = np.meshgrid(mass_hnl_array, mixing_array)
     
-    levels = [0.0, 0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+    # Define discrete levels
+    levels = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 
+              0.6, 0.7, 0.8, 0.9, 1.0]
     n_levels = len(levels)
-    # Use pcolormesh to plot the survival fraction directly.
-    cmap = plt.get_cmap('tab10', n_levels)
-    mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, shading='auto', vmin=0.0, vmax=1.0)  # Transpose to align dimensions
     
-    plt.colorbar(mesh, label='Survival Fraction')
+    # Create a discrete colormap
+    cmap = plt.get_cmap('Set3', n_levels-1)  # n_levels-1 colors
+    norm = BoundaryNorm(boundaries=levels, ncolors=n_levels-1, extend='both')
+    
+    # Use pcolormesh with the defined norm
+    mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, norm=norm, shading='auto')
+    
+    # Create colorbar with ticks at the level boundaries
+    cbar = plt.colorbar(mesh, ticks=levels, boundaries=levels, extend='both')
+    cbar.set_label('Survival Fraction')
 
     if plot_mass_mixing_lines:
         # Define constants C representing c*tau*gamma in meters
@@ -582,22 +594,23 @@ def plot_survival_parameter_space_regions_nointerpolation(
         for C in constants:
             # Compute the reciprocal of mixing values for each mass, given c*tau*gamma = C
             mixing_values_for_C = np.array([
-                C / (tau * c * gammas[index]) for index, tau in enumerate(tau_values)
+                C / (tau * c * gammas[index]) if tau * c * gammas[index] != 0 else np.inf
+                for index, tau in enumerate(tau_values)
             ])
             reciprocal_mixing_values = 1 / mixing_values_for_C  # This gives Theta_tau^2
 
+            # Handle potential infinities or invalid values
+            reciprocal_mixing_values = np.where(np.isfinite(reciprocal_mixing_values), reciprocal_mixing_values, np.nan)
+
             # Plot the lines on the mass-mixing parameter space
-            plt.plot(mass_hnl_array, reciprocal_mixing_values, '--', color='red', alpha=0.7)
+            plt.plot(mass_hnl_array, reciprocal_mixing_values, '--', color='black', alpha=1)
 
             # Define target mass_hnl value for label placement
             if C == 1e4:
-                # Shift the last label to the left (e.g., to 35% of the mass range)
                 target_mass_hnl = mass_hnl_array[0] + (mass_hnl_array[-1] - mass_hnl_array[0]) * 0.35
             elif C == 1e3:
-                # Shift the last label to the left (e.g., to 45% of the mass range)
                 target_mass_hnl = mass_hnl_array[0] + (mass_hnl_array[-1] - mass_hnl_array[0]) * 0.45    
             else:
-                # For other labels, keep the target mass in the middle
                 target_mass_hnl = (mass_hnl_array[0] + mass_hnl_array[-1]) / 2  # Middle of mass range
 
             # Find the index in mass_hnl_array closest to target_mass_hnl
@@ -661,15 +674,16 @@ def plot_survival_parameter_space_regions_nointerpolation(
                 fontsize=8,
                 ha='center',
                 va='center',
-                rotation=angle_deg - 15,
+                rotation=angle_deg - 20,
                 rotation_mode='anchor',
-                alpha=0.75
+                alpha=1
             )
 
+    # Set scales and labels
     plt.xscale('linear')
     plt.yscale('log')
     plt.ylim(min(mixing_array), max(mixing_array))
-    plt.xlabel('$M_N$ (GeV)', size=12)
+    plt.xlabel('$M_N$ [GeV]', size=12)
     plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
     plt.title(title)
     plt.grid(alpha=0.25)

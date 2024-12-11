@@ -574,8 +574,8 @@ def plot_survival_parameter_space_regions_nointerpolation(
     n_levels = len(levels)
     
     # Create a discrete colormap
-    cmap = plt.get_cmap('Set3', n_levels-1)  # n_levels-1 colors
-    norm = BoundaryNorm(boundaries=levels, ncolors=n_levels-1, extend='both')
+    cmap = plt.get_cmap('Set3', n_levels)  # n_levels-1 colors
+    norm = BoundaryNorm(boundaries=levels, ncolors=n_levels, extend='both')
     
     # Use pcolormesh with the defined norm
     mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, norm=norm, shading='auto')

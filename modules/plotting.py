@@ -545,7 +545,7 @@ def plot_survival_parameter_space_regions_nointerpolation(
     gammas=None
 ):
     """
-    Plot survival fraction on the parameter space directly using the actual survival values.
+    Plot survival fraction on the parameter space using discrete color levels.
 
     :param survival_fraction: Survival fraction array with shape (masses, mixings).
     :param labels: Optional list of labels for the plot.
@@ -563,11 +563,21 @@ def plot_survival_parameter_space_regions_nointerpolation(
 
     X, Y = np.meshgrid(mass_hnl_array, mixing_array)
     
-    # Use pcolormesh to plot the survival fraction directly.
-    cmap = plt.get_cmap('viridis')
-    mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, shading='auto')  # Transpose to align dimensions
+    # Define discrete levels from 0 to 1 with 0.1 increments
+    levels = np.arange(0, 1.1, 0.1)  # 0, 0.1, 0.2, ..., 1.0
+
+    # Create a colormap with discrete colors
+    cmap = plt.get_cmap('viridis', len(levels)-1)  # 'viridis' with 10 discrete colors
+
+    # Create a normalization based on the discrete levels
+    norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+
+    # Use pcolormesh with discrete color levels
+    mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, norm=norm, shading='auto')  # Transpose to align dimensions
     
-    plt.colorbar(mesh, label='Survival Fraction')
+    # Add a colorbar with ticks at each level
+    cbar = plt.colorbar(mesh, ticks=levels, boundaries=levels, spacing='proportional')
+    cbar.set_label('Survival Fraction')
 
     if plot_mass_mixing_lines:
         # Define constants C representing c*tau*gamma in meters

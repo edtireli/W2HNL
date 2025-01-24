@@ -844,7 +844,7 @@ def plot_survival_parameter_space_regions_nointerpolation(
     
     plt.show()
 
-def plot_survival_parameter_space_regions_nointerpolation(
+def plot_survival_parameter_space_regions_nointerpolation_special(
     survival_fraction,
     labels=None,
     colors=None,

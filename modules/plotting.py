@@ -844,6 +844,169 @@ def plot_survival_parameter_space_regions_nointerpolation(
     
     plt.show()
 
+def plot_survival_parameter_space_regions_nointerpolation(
+    survival_fraction,
+    labels=None,
+    colors=None,
+    title='',
+    savename='',
+    plot_mass_mixing_lines=False,
+    gammas=None
+):
+    """
+    Plot survival fraction on the parameter space directly using the actual survival values.
+
+    :param survival_fraction: Survival fraction array with shape (masses, mixings).
+    :param labels: Optional list of labels for the plot.
+    :param colors: Optional color for the plot.
+    :param title: Title of the plot.
+    :param savename: Filename to save the plot.
+    :param plot_mass_mixing_lines: Boolean to plot mass-mixing lines.
+    :param gammas: Array of Lorentz factors corresponding to each mass.
+    """
+    plt.figure(figsize=(6, 6))
+
+    # Convert mass_hnl and mixing to NumPy arrays
+    mass_hnl_array = np.array(mass_hnl)
+    mixing_array = np.array(mixing)
+
+    X, Y = np.meshgrid(mass_hnl_array, mixing_array)
+    
+    # Define discrete levels
+    levels = [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 
+              0.06, 0.07, 0.08, 0.09, 0.1]
+    n_levels = len(levels) - 1  # Correct number of bins
+
+    # Create a discrete colormap
+    cmap = plt.get_cmap('tab20', n_levels)  # Use n_levels instead of len(levels)
+
+    # Define normalization based on discrete levels without 'extend'
+    norm = BoundaryNorm(boundaries=levels, ncolors=n_levels, clip=True)
+
+    # Use pcolormesh with the defined norm
+    mesh = plt.pcolormesh(X, Y, survival_fraction.T, cmap=cmap, norm=norm, shading='auto')
+
+    # Create colorbar with ticks at the level boundaries and extend='both'
+    cbar = plt.colorbar(mesh, ticks=levels, boundaries=levels, extend='both')
+    cbar.set_label('Survival Fraction')
+
+    if plot_mass_mixing_lines:
+        # Define constants C representing c*tau*gamma in meters
+        constants = [1e-3, 1e-2, 1e-1, 1, 10, 100, 1e3]
+        c = light_speed()  # Speed of light in meters per second
+
+        # Precompute tau values at mixing parameter Theta_tau^2 = 1
+        tau_values = np.array([HNL(mass, [0, 0, 1], False).computeNLifetime() for mass in mass_hnl_array])
+
+        for C in constants:
+            # Compute the reciprocal of mixing values for each mass, given c*tau*gamma = C
+            mixing_values_for_C = np.array([
+                C / (tau * c * gammas[index]) if tau * c * gammas[index] != 0 else np.inf
+                for index, tau in enumerate(tau_values)
+            ])
+            reciprocal_mixing_values = 1 / mixing_values_for_C  # This gives Theta_tau^2
+            reciprocal_mixing_values = np.where(np.isfinite(reciprocal_mixing_values), reciprocal_mixing_values, np.nan)
+
+            plt.plot(mass_hnl_array, reciprocal_mixing_values, '--', color='black', alpha=1)
+
+            # Define target mass_hnl value for label placement
+            if C == 1e4:
+                target_mass_hnl = mass_hnl_array[0] + (mass_hnl_array[-1] - mass_hnl_array[0]) * 0.35
+            elif C == 1e3:
+                target_mass_hnl = mass_hnl_array[0] + (mass_hnl_array[-1] - mass_hnl_array[0]) * 0.45    
+            else:
+                target_mass_hnl = (mass_hnl_array[0] + mass_hnl_array[-1]) / 2  # Middle of mass range
+
+            # Find the index in mass_hnl_array closest to target_mass_hnl
+            label_index = np.argmin(np.abs(mass_hnl_array - target_mass_hnl))
+
+            # Check if reciprocal_mixing_values[label_index] is within the plotting range
+            if not (min(mixing_array) <= reciprocal_mixing_values[label_index] <= max(mixing_array)):
+                sorted_indices = np.argsort(np.abs(mass_hnl_array - target_mass_hnl))
+                for idx in sorted_indices:
+                    if min(mixing_array) <= reciprocal_mixing_values[idx] <= max(mixing_array):
+                        label_index = idx
+                        break
+                else:
+                    continue  # Skip labeling if no suitable index is found
+
+            # Adjust indices for slope calculation
+            if label_index <= 0:
+                idx1, idx2 = label_index, label_index + 1
+            elif label_index >= len(mass_hnl_array) - 1:
+                idx1, idx2 = label_index - 1, label_index
+            else:
+                idx1, idx2 = label_index - 1, label_index + 1
+
+            ax = plt.gca()
+            x_data = mass_hnl_array[[idx1, idx2]]
+            y_data = reciprocal_mixing_values[[idx1, idx2]]
+
+            # Since y-axis is logarithmic, transform y_data accordingly
+            y_data_log = np.log10(y_data)
+
+            # Transform data points to display coordinates
+            trans = ax.transData.transform
+            x_display, y_display = trans(np.column_stack([x_data, y_data_log])).T
+
+            delta_x = x_display[1] - x_display[0]
+            delta_y = y_display[1] - y_display[0]
+            angle_rad = np.arctan2(delta_y, delta_x)
+            angle_deg = np.degrees(angle_rad)
+
+            offset = 0.47  # vertical offset in log space
+            y_offset_log = np.log10(reciprocal_mixing_values[label_index]) + offset
+            y_offset = 10 ** y_offset_log
+
+            exponent = int(np.log10(C))
+            if C == 1:
+                C_label = '1'
+            else:
+                C_label = f'10^{{{exponent}}}'
+
+            plt.text(
+                mass_hnl_array[label_index]-0.25,
+                y_offset,
+                f'$c\\tau\\gamma = {C_label}\\ \\mathrm{{m}}$',
+                color='black',
+                fontsize=8,
+                ha='center',
+                va='center',
+                rotation=angle_deg - 17.5,
+                rotation_mode='anchor',
+                alpha=1
+            )
+
+    # Set scales and labels
+    plt.xscale('linear')
+    plt.yscale('log')
+    plt.xlim(0.5, 16)
+    plt.ylim(min(mixing_array), max(mixing_array))
+    plt.xlabel('m$_N$ [GeV]', size=12)
+    plt.ylabel(r'Mixing, $\Theta_{\tau}^2$', size=12)
+
+    # Configure major/minor y-ticks and their label size
+    ax = plt.gca()
+    ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
+    # For minor ticks in log scale, use subs=(2, 3, ... , 9) to get log spacings
+    ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=np.arange(2,10)*0.1, numticks=12))
+    # If you want to hide the numeric labels on minor ticks, uncomment the next line:
+    # ax.yaxis.set_minor_formatter(NullFormatter())
+
+    ax.tick_params(axis='y', which='major', labelsize=12)
+    ax.tick_params(axis='y', which='minor', labelsize=12)
+
+    plt.grid(alpha=0.25)
+
+    # Connect the key press event to the handler (if interactive features are needed)
+    plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
+
+    # Save plot if savename is provided
+    if savename:
+        save_plot(savename)
+    
+    plt.show()    
+
 
 
 def mean_from_2d_survival(arr):
@@ -1623,7 +1786,7 @@ def plotting(momenta, batch, production_arrays, arrays):
 
         if invmass_cut_type == 'nontrivial':
             survival_dv_inv = survival_invmass_*survival_dv_fraction
-            plot_survival_parameter_space_regions_nointerpolation(survival_dv_inv, title='HNL survival', savename='survival_invmass_DV', plot_mass_mixing_lines = False)
+            plot_survival_parameter_space_regions_nointerpolation_special(survival_dv_inv, title='HNL survival', savename='survival_invmass_DV', plot_mass_mixing_lines = False)
             save_array(survival_dv_inv, 'survival_invmass_DV')
 
         # Total survival

@@ -290,7 +290,7 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
     if len(levels) < 2:
         levels = [0, 1]  # Fallback to default if there's any issue
 
-    cmap = plt.get_cmap('Set3', len(levels) - 1)
+    cmap = plt.get_cmap('tab20', len(levels) - 1)
 
     # Create BoundaryNorm to map the colormap to your levels
     norm = BoundaryNorm(levels, ncolors=cmap.N)
@@ -364,65 +364,204 @@ def plot_from_saved_data(filename):
     plt.grid(alpha=0.25)
     plt.show()
     
-def plot_parameter_space_regions(*production_arrays, labels=None, colors=None, smooth=False, sigma=1, savename):
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.ndimage import gaussian_filter1d
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+from matplotlib.ticker import LogLocator, NullFormatter, MaxNLocator
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator, LogLocator, NullFormatter
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+from scipy.ndimage import gaussian_filter1d
+
+def plot_parameter_space_regions(*production_arrays,
+                                 labels=None,
+                                 colors=None,
+                                 smooth=False,
+                                 sigma=1,
+                                 savename='hnl_production_parameter_space_multi'):
     """
-    Plot multiple production arrays on the same parameter space with contours.
+    Plot multiple production arrays on the same parameter space
+    with backdrop constraints, matching the style of the "other code."
 
-    :param production_arrays: Unpacked tuple of production arrays.
-    :param labels: Optional list of labels for each production array's contour.
-    :param colors: Optional list of colors for each contour line.
-    :param smooth: Apply Gaussian smoothing to the last production array.
-    :param sigma: Standard deviation for Gaussian kernel if smoothing is applied.
+    :param production_arrays: 2D numpy arrays (shape = len(mass_hnl) x len(mixing_values)).
+    :param labels:            Labels for each line (list of strings).
+    :param colors:            Colors for each line (list of strings).
+    :param smooth:            Whether to apply Gaussian smoothing.
+    :param sigma:             Std. dev. for Gaussian kernel if smoothing is True.
+    :param savename:          File name prefix for saving the plot.
     """
-    mass_grid, mixing_grid = np.meshgrid(
-        np.linspace(min(mass_hnl), max(mass_hnl), 100),
-        np.logspace(np.log10(min(mixing)), np.log10(max(mixing)), 100)
-    )
 
-    plt.figure(figsize=(10, 6))
+    # -----------------------------
+    # 1) Basic definitions
+    # -----------------------------
+    base_folder = '/groups/pheno/sqd515/Heavy-Neutrino-Limits/src/HNLimits/include/data'
+    datasets = [
+        {'name': 'CHARM',            'file_top': 'utau4/CHARM_UL_90CL_2002.dat', 'unit': 'MeV'},
+        {'name': 'DELPHI_short',     'file_top': 'umu4/DELPHI_short_95CL.dat',   'unit': 'GeV'},
+        {'name': 'DELPHI_long',      'file_top': 'umu4/DELPHI_long_95CL.dat',    'unit': 'GeV'},
+        {'name': 'Borexino_Plestid', 'file_top': 'utau4/Borexino_RPlestid.dat',  'unit': 'MeV'},
+        {'name': 'CHARM_2021',       'file_top': 'Boiarska_CHARM/CHARM.dat',     'unit': 'GeV'},
+        {'name': 'ArgoNeuT',         'file_top': 'argoneut/argoneut_top.dat',    'unit': 'GeV'},
+        {'name': 'BaBar_2022',       'file_top': 'BaBar_tau_2022/with_sys.dat',  'unit': 'MeV'},
+        {'name': 'PMNS_Unitarity',   'file_top': 'PMNS_unitarity/PMNS_NU_Ut42_90_last.dat', 'unit': 'GeV'},
+        {'name': 'BEBC_Barouki',     'file_top': 'BEBC_Barouki/BEBC_Barouki_ut42_top.dat',  'unit': 'GeV'},
+        {'name': 'Atmospheric_Nu',   'file_top': 'Atmospheric_neutrino_data/atmospheric_nu_data_ut42.dat','unit': 'GeV'}
+    ]
 
+    # Define mass and mixing grid
+    mass_hnl      = np.array([i * 0.25 for i in range(2, 81)])  # 0.5, 0.75, 1.0, ...
+    mixing_values = np.logspace(0, -8, 200)                    # 10^0 down to 10^-8
+    missing_or_invalid = []
+
+    # A helper function to read data from external .dat files
+    def read_dat_file(file_path, file_name, unit):
+        try:
+            data = np.loadtxt(file_path, comments='#')
+            if data.size == 0:
+                missing_or_invalid.append(file_name + " (Empty file)")
+                return np.array([]), np.array([])
+            m4 = data[:, 0]
+            ualpha4 = data[:, 1]
+            if unit == 'GeV':
+                m4 *= 1000
+            return m4, ualpha4
+        except Exception as e:
+            print(f"Error reading {file_path}: {e}")
+            missing_or_invalid.append(file_name + " (Error reading file)")
+            return np.array([]), np.array([])
+
+    # Backdrop: fill grey region from each dataset
+    def plot_backdrop():
+        for dataset in datasets:
+            file_path_top = os.path.join(base_folder, dataset['file_top'])
+            if os.path.exists(file_path_top):
+                m4, ualpha4 = read_dat_file(file_path_top, dataset['name'], dataset['unit'])
+                if len(m4) > 0 and len(ualpha4) > 0:
+                    plt.fill_between(m4 / 1000.0, ualpha4, 1, color='grey', alpha=1)
+                else:
+                    missing_or_invalid.append(dataset['name'] + " (No valid data)")
+            else:
+                missing_or_invalid.append(dataset['name'] + " (File not found)")
+
+    # ---------------
+    # Ticks & Grids
+    # ---------------
+    def apply_ticks_and_grids(ax):
+        # 1) Set the scaling (x = linear, y = log)
+        ax.set_xscale('linear')
+        ax.set_yscale('log')
+
+        # 2) Set the axis limits AFTER the scale
+        ax.set_xlim(0, 16)
+        ax.set_ylim(1e-10, 1)
+
+        # 3) Set up locators for major/minor ticks
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=10))
+        ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
+        ax.yaxis.set_minor_locator(LogLocator(base=10.0, 
+                                              subs=np.arange(1, 10)*0.1, 
+                                              numticks=100))
+        ax.yaxis.set_minor_formatter(NullFormatter())
+
+        # 4) Tweak tick appearance
+        ax.tick_params(labelsize=12, length=10, which='major', direction='in', top=True, right=True)
+        ax.tick_params(length=5, which='minor', direction='in', top=True, right=True)
+
+        # 5) Enable both major and minor grid lines
+        ax.grid(True, which='major', linestyle='--', linewidth=0.5, alpha=0.7)
+        ax.grid(True, which='minor', linestyle=':', linewidth=0.5, alpha=0.4)
+
+    # -------------------------
+    # Create figure & backdrop
+    # -------------------------
+    fig, ax = plt.subplots(figsize=(8,8))
+    plot_backdrop()
+
+    # If labels or colors are insufficient, create defaults
+    n_contours = len(production_arrays)
     if labels is None:
-        labels = [f'Contour {i+1}' for i in range(len(production_arrays))]
+        labels = [f'Line {i+1}' for i in range(n_contours)]
     if colors is None:
-        colors = plt.cm.jet(np.linspace(0, 1, len(production_arrays)))
+        colors = plt.cm.jet(np.linspace(0, 1, n_contours))
+    if len(labels) < n_contours:
+        labels += [f'Line {i+1}' for i in range(len(labels), n_contours)]
+    if len(colors) < n_contours:
+        extra_colors = plt.cm.jet(np.linspace(0, 1, n_contours - len(colors)))
+        colors = list(colors) + list(extra_colors)
 
-    for i, production_array in enumerate(production_arrays):
-        if smooth and i == len(production_arrays) - 1:  # Apply smoothing to the last array if smooth is True
-            values = gaussian_filter(production_array, sigma=sigma).flatten()
-        else:
-            values = production_array.flatten()
+    legend_patches = []
+    threshold = 3
 
-        production_grid = griddata(
-            (np.repeat(mass_hnl, len(mixing)), np.tile(mixing, len(mass_hnl))),
-            values,
-            (mass_grid, mixing_grid),
-            method='linear'
-        )
+    # ----------------------------------
+    # Plot each production array as line
+    # ----------------------------------
+    for idx, production_data in enumerate(production_arrays):
+        data_to_plot = production_data.copy()
+        if smooth:
+            data_to_plot = gaussian_filter1d(data_to_plot, sigma=sigma, axis=0)
 
-        contour = plt.contour(
-            mass_grid, mixing_grid, production_grid,
-            levels=[production_minimum],
-            colors=[colors[i]],
-            linewidths=2,
-            linestyles='-'
-        )
+        max_val = np.max(data_to_plot)
 
-        # Plot invisible line for legend entry
-        plt.plot([], [], color=colors[i], linewidth=2, linestyle='-', label=labels[i])
+        # If data never crosses threshold, do scatter or skip
+        if max_val < threshold:
+            above_thresh = np.argwhere(data_to_plot >= threshold)
+            if above_thresh.size > 0:
+                xvals = mass_hnl[above_thresh[:, 0]]
+                yvals = mixing_values[above_thresh[:, 1]]
+                ax.scatter(xvals, yvals, color=colors[idx], marker='o', s=10)
+                legend_patches.append(Line2D([0],[0],
+                                             marker='o',
+                                             color='w',
+                                             label=labels[idx],
+                                             markerfacecolor=colors[idx],
+                                             markersize=10))
+            else:
+                print(f"No data >= threshold for '{labels[idx]}'")
+            continue
 
-    plt.legend(loc='upper right', frameon=True)
-    plt.xscale('linear')
-    plt.yscale('log')
-    plt.xlabel('HNL Mass, $M_N$ (GeV)', size = 12)
-    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size = 12)
-    plt.title('HNL Production Parameter Space')
-    
-    # Connect the key press event to the handler
-    plt.gcf().canvas.mpl_connect('key_press_event', on_key_press)
+        # Single contour line at 'threshold'
+        c = ax.contour(mass_hnl,
+                       mixing_values,
+                       data_to_plot.T,
+                       levels=[threshold],
+                       colors=[colors[idx]],
+                       linewidths=2)
+        if c.collections:
+            c.collections[0].set_label(labels[idx])
+            legend_patches.append(Line2D([0],[0],
+                                         color=colors[idx],
+                                         label=labels[idx],
+                                         linewidth=2))
 
-    plt.grid(alpha=0.25)
-    save_plot(savename)
+    # -----------------------------
+    # Apply custom ticks/grids now
+    # -----------------------------
+    apply_ticks_and_grids(ax)
+
+    # Labels & final touches
+    fsize = 16
+    ax.set_xlabel(r'$m_N$ [GeV]', fontsize=fsize)
+    ax.set_ylabel(r'$\Theta_{\tau}^2$', fontsize=fsize)
+
+    # Combine legend
+    if legend_patches:
+        legend = ax.legend(handles=legend_patches, loc='upper right', fontsize=fsize, frameon=True)
+        # legend.set_title("Production Cuts", prop={'size': fsize - 2})
+
+    fig.tight_layout()
+
+    # If you have a custom function to save the plot, call that here
+    save_plot(f"{savename}.png", dpi=300)
     plt.show()
+
+
+
 
 def plot_survival_fractions_simple(survival_arrays, labels, title, savename):
     """
@@ -540,6 +679,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap
 
+from matplotlib.ticker import LogLocator, NullFormatter
+
 def plot_survival_parameter_space_regions_nointerpolation(
     survival_fraction,
     labels=None,
@@ -574,7 +715,7 @@ def plot_survival_parameter_space_regions_nointerpolation(
     n_levels = len(levels) - 1  # Correct number of bins
 
     # Create a discrete colormap
-    cmap = plt.get_cmap('Set3', n_levels)  # Use n_levels instead of len(levels)
+    cmap = plt.get_cmap('tab20', n_levels)  # Use n_levels instead of len(levels)
 
     # Define normalization based on discrete levels without 'extend'
     norm = BoundaryNorm(boundaries=levels, ncolors=n_levels, clip=True)
@@ -601,11 +742,8 @@ def plot_survival_parameter_space_regions_nointerpolation(
                 for index, tau in enumerate(tau_values)
             ])
             reciprocal_mixing_values = 1 / mixing_values_for_C  # This gives Theta_tau^2
-
-            # Handle potential infinities or invalid values
             reciprocal_mixing_values = np.where(np.isfinite(reciprocal_mixing_values), reciprocal_mixing_values, np.nan)
 
-            # Plot the lines on the mass-mixing parameter space
             plt.plot(mass_hnl_array, reciprocal_mixing_values, '--', color='black', alpha=1)
 
             # Define target mass_hnl value for label placement
@@ -621,7 +759,6 @@ def plot_survival_parameter_space_regions_nointerpolation(
 
             # Check if reciprocal_mixing_values[label_index] is within the plotting range
             if not (min(mixing_array) <= reciprocal_mixing_values[label_index] <= max(mixing_array)):
-                # Search for the closest index where the line is within the plotting range
                 sorted_indices = np.argsort(np.abs(mass_hnl_array - target_mass_hnl))
                 for idx in sorted_indices:
                     if min(mixing_array) <= reciprocal_mixing_values[idx] <= max(mixing_array):
@@ -638,7 +775,6 @@ def plot_survival_parameter_space_regions_nointerpolation(
             else:
                 idx1, idx2 = label_index - 1, label_index + 1
 
-            # Transform data points to display coordinates
             ax = plt.gca()
             x_data = mass_hnl_array[[idx1, idx2]]
             y_data = reciprocal_mixing_values[[idx1, idx2]]
@@ -646,38 +782,34 @@ def plot_survival_parameter_space_regions_nointerpolation(
             # Since y-axis is logarithmic, transform y_data accordingly
             y_data_log = np.log10(y_data)
 
-            # Get the transformation from data to display coordinates
+            # Transform data points to display coordinates
             trans = ax.transData.transform
             x_display, y_display = trans(np.column_stack([x_data, y_data_log])).T
 
-            # Compute the angle between the two points in display coordinates
             delta_x = x_display[1] - x_display[0]
             delta_y = y_display[1] - y_display[0]
             angle_rad = np.arctan2(delta_y, delta_x)
             angle_deg = np.degrees(angle_rad)
 
-            # Adjust the label position slightly upward in log space
-            offset = 0.15  # Adjust this value as needed
+            offset = 0.47  # vertical offset in log space
             y_offset_log = np.log10(reciprocal_mixing_values[label_index]) + offset
             y_offset = 10 ** y_offset_log
 
-            # Format the C value for the label without dollar signs
             exponent = int(np.log10(C))
             if C == 1:
                 C_label = '1'
             else:
                 C_label = f'10^{{{exponent}}}'
 
-            # Place the label at the adjusted position, ensuring proper math mode usage
             plt.text(
-                mass_hnl_array[label_index],
+                mass_hnl_array[label_index]-0.25,
                 y_offset,
                 f'$c\\tau\\gamma = {C_label}\\ \\mathrm{{m}}$',
-                color='red',
+                color='black',
                 fontsize=8,
                 ha='center',
                 va='center',
-                rotation=angle_deg - 20,
+                rotation=angle_deg - 17.5,
                 rotation_mode='anchor',
                 alpha=1
             )
@@ -685,11 +817,22 @@ def plot_survival_parameter_space_regions_nointerpolation(
     # Set scales and labels
     plt.xscale('linear')
     plt.yscale('log')
-    plt.xlim(0, 16)
+    plt.xlim(0.5, 16)
     plt.ylim(min(mixing_array), max(mixing_array))
     plt.xlabel('m$_N$ [GeV]', size=12)
-    plt.ylabel('Mixing, $\\Theta_{\\tau}^2$', size=12)
-    #plt.title(title)
+    plt.ylabel(r'Mixing, $\Theta_{\tau}^2$', size=12)
+
+    # Configure major/minor y-ticks and their label size
+    ax = plt.gca()
+    ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
+    # For minor ticks in log scale, use subs=(2, 3, ... , 9) to get log spacings
+    ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=np.arange(2,10)*0.1, numticks=12))
+    # If you want to hide the numeric labels on minor ticks, uncomment the next line:
+    # ax.yaxis.set_minor_formatter(NullFormatter())
+
+    ax.tick_params(axis='y', which='major', labelsize=12)
+    ax.tick_params(axis='y', which='minor', labelsize=12)
+
     plt.grid(alpha=0.25)
 
     # Connect the key press event to the handler (if interactive features are needed)
@@ -958,34 +1101,17 @@ def plot_invariant_mass_cut_histogram(momenta, survival_invmass_displaced, r_lab
     """
     Plots the invariant mass cut as a 2D histogram, showing passed and failed events as colored boxes.
     """
-    # Find mixing indices where production_allcuts >= 3 for any mass
-    production_mask = np.any(production_allcuts >= 3, axis=0)
-    mixing_indices_with_production = np.where(production_mask)[0]
 
-    if len(mixing_indices_with_production) == 0:
-        print("No mixing values with production >= 3 found.")
-        return
-
-    # Find the mixing index with the lowest mixing value among those
-    mixing_values_with_production = np.array(mixing)[mixing_indices_with_production]
-    min_mixing_idx_in_list = np.argmin(mixing_values_with_production)
-    mixing_idx = mixing_indices_with_production[min_mixing_idx_in_list]
-
-    # For this mixing_idx, find mass indices where production_allcuts >= 3
-    mass_indices = np.where(production_allcuts[:, mixing_idx] >= 3)[0]
-    print(mass_indices, mixing_idx)
-    # Get production values for these mass indices
-    production_values = production_allcuts[mass_indices, mixing_idx]
-
-    # Select mass index with maximum production
-    max_production_idx_in_list = np.argmax(production_values)
-    mass_idx = mass_indices[max_production_idx_in_list]
+    # Force the mass index to correspond to 4 GeV, and the mixing index to 1e-6
+    mass_idx = 14
+    mixing_idx = 150
+    print(mass_idx, mixing_idx)
 
     # Get decay positions and compute decay lengths
     r_dv = r_lab[mass_idx, mixing_idx, :, :]  # Shape: (n_events, 3)
     r_dv_norm = np.linalg.norm(r_dv, axis=1)
     r_dv_norm_m = r_dv_norm * light_speed()  # Convert to meters
-    r_dv_norm_mm = r_dv_norm_m * 1000  # Convert to mm
+    r_dv_norm_mm = r_dv_norm_m * 1000        # Convert to mm
 
     # Get momenta of the displaced particles
     batch = ParticleBatch(momenta)
@@ -1029,7 +1155,9 @@ def plot_invariant_mass_cut_histogram(momenta, survival_invmass_displaced, r_lab
 
     # Function y1(r_dv) for the invariant mass cut
     def y1(r_dv, c1):
-        return np.where(r_dv <= 50, 10, ((c1 - 10) / (700 - 50)) * (r_dv - 50) + 10)
+        return np.where(r_dv <= 50, 
+                        10, 
+                        ((c1 - 10) / (700 - 50)) * (r_dv - 50) + 10)
 
     y1_vals = y1(r_dv_plot, c1)
     y2 = c2
@@ -1038,37 +1166,70 @@ def plot_invariant_mass_cut_histogram(momenta, survival_invmass_displaced, r_lab
     intersection_rdv = 50 + ((10 - y2) * (700 - 50) / (10 - c1))
     intersection_index = np.where(r_dv_plot >= intersection_rdv)[0][0]
 
-    # Plotting the invariant mass cut and events
     plt.figure(figsize=(6, 6))
 
-    # Plot y1 up to the intersection point
-    plt.plot(r_dv_plot[:intersection_index], y1_vals[:intersection_index], linestyle='-', color='black')
+    # 1) Fill the accepted region *first*, so lines appear on top
+    plt.fill_between(
+        r_dv_plot[:intersection_index+1],
+        15,
+        y1_vals[:intersection_index+1],      # fill from the curve up to y=15
+        color='grey', alpha=0.5
+    )
+    plt.fill_between(
+        r_dv_plot[intersection_index:],  
+        15,
+        y2,            # fill from y2 to y=15
+        color='grey', alpha=0.5
+    )
 
-    # Plot y2 as a horizontal line from the intersection point onwards
-    plt.plot(r_dv_plot[intersection_index:], [y2]*(len(r_dv_plot) - intersection_index), linestyle='-', color='black')
+    # 2) Plot the cut lines on top (no vertical gap at intersection):
+    plt.plot(
+        r_dv_plot[:intersection_index+1],
+        y1_vals[:intersection_index+1],
+        linestyle='-', color='black'
+    )
+    plt.plot(
+        r_dv_plot[intersection_index:],
+        [y2]*(len(r_dv_plot) - intersection_index),
+        linestyle='-', color='black'
+    )
 
-    # Fill the accepted region
-    plt.fill_between(r_dv_plot[:intersection_index], y1_vals[:intersection_index], y2=15, interpolate=True, color='grey', alpha=0.5)
-    plt.fill_between(r_dv_plot[intersection_index:], y2, y2=15, interpolate=True, color='grey', alpha=0.5)
-    # Add red dotted line at y=5 GeV
-    plt.axhline(y=int(invmass_minimum[0]), color='red', linestyle=':', label='$m_{DV} = $' +f' {invmass_minimum}')
+    # Optional horizontal line for minimal DV mass
+    plt.axhline(
+        y=int(invmass_minimum[0]),
+        color='black',
+        linestyle=':',
+        label='$m_{DV} = $' + f' {invmass_minimum}',
+        linewidth=2
+    )
 
     # Plot events as colored squares
-    plt.scatter(r_dv_norm_mm[passed], invariant_masses[passed], marker='s', color='green', label='Passed', s=10)
-    plt.scatter(r_dv_norm_mm[~passed], invariant_masses[~passed], marker='s', color='red', label='Failed', s=10)
+    plt.scatter(r_dv_norm_mm[passed], invariant_masses[passed],
+                marker='s', color='green', label='Passed', s=10)
+    plt.scatter(r_dv_norm_mm[~passed], invariant_masses[~passed],
+                marker='s', color='red', label='Failed', s=10)
 
     # Plot decorations
-    plt.xlabel('$r_{\\mathrm{DV}}$ [mm]', fontsize=12)
-    plt.ylabel('$m_{\\mathrm{DV}}$ [GeV]', fontsize=12)
-    plt.title(f'Invariant Mass Criteria for \nMass={mass_hnl[mass_idx]} GeV, $\Theta_\\tau^2$={mixing[mixing_idx]:.1e}', fontsize=14)
+    plt.xlabel('$r_{\\mathrm{DV}}$ [mm]', fontsize=16)
+    plt.ylabel('$m_{\\mathrm{DV}}$ [GeV]', fontsize=16)
+    plt.title(
+        f'Invariant Mass Criteria for \nMass={mass_hnl[mass_idx]} GeV, '
+        + '$\\Theta_\\tau^2$='
+        + f'{mixing[mixing_idx]:.1e}',
+        fontsize=16
+    )
     plt.ylim(0, 15)
     plt.xlim(0, 300)
     plt.grid(True)
-    plt.legend()
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.legend(fontsize=16)
 
     plt.tight_layout()
     save_plot('invariant_mass_cut_histogram')
     plt.show()
+
+
 
 def plot_simple_histograms(momenta, survival_invmass_displaced, r_lab, mass_hnl, mixing, production_allcuts):
     """
@@ -1230,7 +1391,7 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
     levels = np.linspace(values.min(), values.max(), n_levels)
     
     # Use a discrete colormap with 'Set1' or 'tab10', or any other discrete colormap
-    cmap = plt.get_cmap('Set3', n_levels)
+    cmap = plt.get_cmap('tab20', n_levels)
     
     # Create a filled contour plot with discrete levels and discrete colormap
     contour_filled = plt.contourf(mass_grid, mixing_grid, production_grid, levels=levels, cmap=cmap, extend='both')
@@ -1460,6 +1621,11 @@ def plotting(momenta, batch, production_arrays, arrays):
         plot_survival_parameter_space_regions_nointerpolation(survival_invmass_, title='HNL survival (invariant mass)', savename='survival_invmass', plot_mass_mixing_lines = False)
         save_array(survival_invmass_, 'survival_invmass')
 
+        if invmass_cut_type == 'nontrivial':
+            survival_dv_inv = survival_invmass_*survival_dv_fraction
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_inv, title='HNL survival', savename='survival_invmass_DV', plot_mass_mixing_lines = False)
+            save_array(survival_dv_inv, 'survival_invmass_DV')
+
         # Total survival
         survival_total = survival_dv_fraction * survival_pt_* survival_rapidity_* survival_invmass_* survival_deltaR_
         plot_survival_parameter_space_regions_nointerpolation(survival_total, title='HNL survival (all cuts)', savename='survival_allcuts', plot_mass_mixing_lines = False)
@@ -1486,8 +1652,26 @@ def plotting(momenta, batch, production_arrays, arrays):
     plot_parameter_space_region(production_nocuts, title='HNL Production (no cuts)', savename = 'hnl_production_nocuts')  
     save_array(production_nocuts, 'production_nocuts')
     plot_parameter_space_region(production_allcuts, title='HNL Production (all cuts)', savename = f'hnl_production_allcuts_{luminosity}_{invmass_cut_type}')    
-    plot_parameter_space_regions(production_nocuts, production_pT, production__pT_rap, production__pT_rap_invmass, production_allcuts, labels=['no cuts', '$p_T$-cut', '($p_T \\cdot \\eta$)-cut', '($p_T \\cdot \\eta \\cdot m_0$)-cut', '($p_T \\cdot \\eta \\cdot m_0 \\cdot \Delta_R \\cdot DV$)-cut'], colors=['red', 'blue', 'green', 'purple', 'black'], smooth=False, sigma=1, savename='hnl_production_parameter_space_multi') 
     
+    plot_parameter_space_regions(
+        production_nocuts, 
+        production_pT, 
+        production__pT_rap, 
+        production__pT_rap_invmass, 
+        production_allcuts,
+        labels=[
+            'no cuts', 
+            r'$p_T$-cut', 
+            r'($p_T \cdot \eta$)-cut', 
+            r'($p_T \cdot \eta \cdot m_0$)-cut', 
+            r'($p_T \cdot \eta \cdot m_0 \cdot \Delta_R \cdot DV$)-cut'
+        ],
+        colors=['red', 'blue', 'green', 'purple', 'black'],
+        smooth=False, 
+        sigma=1, 
+        savename='hnl_production_parameter_space_multi'
+    )
+
     plot_invariant_mass_cut_histogram(
             momenta, 
             survival_invmass_displaced, 

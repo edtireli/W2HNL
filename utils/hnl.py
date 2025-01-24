@@ -34,8 +34,8 @@ import sys, os
 import numpy as np
 import scipy.interpolate
 import scipy.integrate
-import utils.shipunit as u
-import utils.hnlbr.data.particle as dat
+import shipunit as u
+import hnlbr.data.particle as dat
 
 # Load PDG database
 pdata = dat.ParticleData()
@@ -704,21 +704,7 @@ if __name__ == '__main__':
         return np.real(gamma)  # Taking the real part to avoid small imaginary residues
 
     # Example plotting over m_N for fixed m_P
-    m_P = 5.4  
-    m_N_vals = np.linspace(1e-6, 5, 50000) 
-    m_N_lifetimes = np.array([HNL(m,[1,1,1],False).computeNLifetime() for m in m_N_vals])
+    m_N_lifetime = HNL(8,[0,0,1e-7],False).computeNLifetime()
+    print(m_N_lifetime*3e8*20)
     #m_N_lifetimes = 2.4e-5
-    
-    # Calculate decay widths
-    gamma_vals = np.array([decay_width(m_P, m_N) for m_N in m_N_vals])
-    branchings = gamma_vals * m_N_lifetimes
 
-    # Plotting the result
-    plt.figure(figsize=(6,6))
-    plt.plot(m_N_vals, branchings)
-    plt.xlabel('m_N')
-    plt.ylabel('Decay Width (Gamma)')
-    plt.title('Decay Width as a function of m_N')
-    plt.grid(True)
-    plt.yscale('log')
-    plt.show()

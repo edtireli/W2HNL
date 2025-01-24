@@ -865,7 +865,6 @@ def plot_survival_parameter_space_regions_nointerpolation_special(
     :param gammas: Array of Lorentz factors corresponding to each mass.
     """
     plt.figure(figsize=(6, 6))
-
     # Convert mass_hnl and mixing to NumPy arrays
     mass_hnl_array = np.array(mass_hnl)
     mixing_array = np.array(mixing)
@@ -874,7 +873,7 @@ def plot_survival_parameter_space_regions_nointerpolation_special(
     
     # Define discrete levels
     levels = [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 
-              0.06, 0.07, 0.08, 0.09, 0.1]
+              0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14]
     n_levels = len(levels) - 1  # Correct number of bins
 
     # Create a discrete colormap
@@ -1334,13 +1333,13 @@ def plot_invariant_mass_cut_histogram(momenta, survival_invmass_displaced, r_lab
     # 1) Fill the accepted region *first*, so lines appear on top
     plt.fill_between(
         r_dv_plot[:intersection_index+1],
-        15,
+        0,
         y1_vals[:intersection_index+1],      # fill from the curve up to y=15
         color='grey', alpha=0.5
     )
     plt.fill_between(
         r_dv_plot[intersection_index:],  
-        15,
+        0,
         y2,            # fill from y2 to y=15
         color='grey', alpha=0.5
     )
@@ -1785,8 +1784,8 @@ def plotting(momenta, batch, production_arrays, arrays):
         save_array(survival_invmass_, 'survival_invmass')
 
         if invmass_cut_type == 'nontrivial':
-            survival_dv_inv = survival_invmass_*survival_dv_fraction
-            plot_survival_parameter_space_regions_nointerpolation_special(survival_dv_inv, title='HNL survival', savename='survival_invmass_DV', plot_mass_mixing_lines = False)
+            survival_dv_inv = survival_invmass_ * survival_dv_fraction
+            plot_survival_parameter_space_regions_nointerpolation(survival_dv_inv, title='HNL survival', savename='survival_invmass_DV', plot_mass_mixing_lines = False)
             save_array(survival_dv_inv, 'survival_invmass_DV')
 
         # Total survival

@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: Cite this software.
+title: W2HNL
+abstract: Monte Carlo analysis pipeline for tau-flavor HNL production and displaced lepton-pair decays at the LHC.
+version: 1.0.0
+doi: 10.5281/zenodo.17342798
+date-released: 2025-10-13
+type: software
+repository-code: https://github.com/edtireli/W2HNL
+url: https://doi.org/10.5281/zenodo.17342798
+license: MIT
+authors:
+  - family-names: Tireli
+    given-names: Edis Devin
+    affiliation: University of Copenhagen; Niels Bohr Institute
+    orcid: https://orcid.org/0009-0009-3585-4333
+keywords:
+  - heavy neutral lepton
+  - displaced vertex
+  - LHC
+  - tau neutrino
+preferred-citation:
+  type: software
+  title: W2HNL
+  authors:
+    - family-names: Tireli
+      given-names: Edis Devin
+  year: 2025
+  version: 1.0.0
+  doi: 10.5281/zenodo.17342798
+  url: https://doi.org/10.5281/zenodo.17342798

@@ -123,6 +123,70 @@ def _map_to_data(
     return float(x_data), float(y_data)
 
 
+def _load_mapped_tsv(tsv_path: str) -> List[Tuple[float, float]]:
+    pts: List[Tuple[float, float]] = []
+    with open(tsv_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = re.split(r"\s+", line)
+            if len(parts) < 2:
+                continue
+            pts.append((float(parts[0]), float(parts[1])))
+    return pts
+
+
+def _filter_y_leq(points: Iterable[Tuple[float, float]], ymax: float) -> List[Tuple[float, float]]:
+    eps = 1e-9
+    return [(x, y) for (x, y) in points if y <= ymax + eps]
+
+
+def _write_mapped_outputs(
+    *,
+    outdir: str,
+    stem: str,
+    mapped: List[Tuple[float, float]],
+    mapping: AxisMapping,
+    xlabel: str,
+    title: str,
+) -> Tuple[str, str]:
+    xs = np.array([p[0] for p in mapped], dtype=float)
+    ys = np.array([p[1] for p in mapped], dtype=float)
+
+    fig2 = plt.figure(figsize=(7.5, 5.5))
+    ax2 = fig2.add_subplot(1, 1, 1)
+    if len(xs):
+        ax2.scatter(xs, ys, s=35)
+    ax2.set_xlabel(xlabel)
+    ax2.set_ylabel("Track reconstruction efficiency")
+    ax2.set_ylim(mapping.ymin, mapping.ymax)
+    if mapping.xscale == "log10":
+        ax2.set_xscale("log")
+        ax2.set_xlim(mapping.xmin, mapping.xmax)
+    else:
+        ax2.set_xlim(mapping.xmin, mapping.xmax)
+
+    for i, (x, y) in enumerate(mapped, start=1):
+        ax2.annotate(str(i), (x, y), textcoords="offset points", xytext=(4, 4), fontsize=8)
+
+    ax2.grid(True, alpha=0.3)
+    ax2.set_title(title)
+
+    mapped_path = os.path.join(outdir, stem + "_mapped_points.png")
+    fig2.tight_layout()
+    fig2.savefig(mapped_path, dpi=200)
+    plt.close(fig2)
+
+    txt_path = os.path.join(outdir, stem + "_mapped_points.tsv")
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write("# x\ty\n")
+        for x, y in mapped:
+            f.write(f"{x:.10g}\t{y:.10g}\n")
+
+    return mapped_path, txt_path
+
+
 def _extract_tick_spans(page: fitz.Page):
     """Return text spans that look like tick labels (digits, decimals), in rotated coords."""
     rot = page.rotation_matrix
@@ -157,7 +221,7 @@ def _page_to_pixel(page: fitz.Page, frame: fitz.Rect, x: float, y: float, img: n
     return px, py
 
 
-def debug_one(pdf_path: str, mapping: AxisMapping, outdir: str):
+def debug_one(pdf_path: str, mapping: AxisMapping, outdir: str, *, filter_ymax: float | None = None):
     doc = fitz.open(pdf_path)
     page = doc[0]
 
@@ -167,6 +231,8 @@ def debug_one(pdf_path: str, mapping: AxisMapping, outdir: str):
 
     # map to data
     mapped = _dedup_points([_map_to_data(frame, x, y, mapping) for x, y in marker_centers])
+    if filter_ymax is not None:
+        mapped = _filter_y_leq(mapped, filter_ymax)
 
     # render image
     img = _render_page_to_image(page, dpi=250)
@@ -230,39 +296,16 @@ def debug_one(pdf_path: str, mapping: AxisMapping, outdir: str):
     plt.close(fig)
 
     # --- Mapped points plot (data space) ---
-    xs = np.array([p[0] for p in mapped], dtype=float)
-    ys = np.array([p[1] for p in mapped], dtype=float)
-
-    fig2 = plt.figure(figsize=(7.5, 5.5))
-    ax2 = fig2.add_subplot(1, 1, 1)
-    ax2.scatter(xs, ys, s=35)
-    ax2.set_xlabel("|d0| [mm]" if "07a" in pdf_path else "R_prod [mm]")
-    ax2.set_ylabel("Track reconstruction efficiency")
-    ax2.set_ylim(mapping.ymin, mapping.ymax)
-    if mapping.xscale == "log10":
-        ax2.set_xscale("log")
-        ax2.set_xlim(mapping.xmin, mapping.xmax)
-    else:
-        ax2.set_xlim(mapping.xmin, mapping.xmax)
-
-    # annotate point indices
-    for i, (x, y) in enumerate(mapped, start=1):
-        ax2.annotate(str(i), (x, y), textcoords="offset points", xytext=(4, 4), fontsize=8)
-
-    ax2.grid(True, alpha=0.3)
-    ax2.set_title(os.path.basename(pdf_path) + " — extracted marker points (mapped)")
-
-    mapped_path = os.path.join(outdir, os.path.splitext(os.path.basename(pdf_path))[0] + "_mapped_points.png")
-    fig2.tight_layout()
-    fig2.savefig(mapped_path, dpi=200)
-    plt.close(fig2)
-
-    # also dump the points as text
-    txt_path = os.path.join(outdir, os.path.splitext(os.path.basename(pdf_path))[0] + "_mapped_points.tsv")
-    with open(txt_path, "w", encoding="utf-8") as f:
-        f.write("# x\ty\n")
-        for x, y in mapped:
-            f.write(f"{x:.10g}\t{y:.10g}\n")
+    stem = os.path.splitext(os.path.basename(pdf_path))[0]
+    xlabel = "|d0| [mm]" if "07a" in pdf_path else "R_prod [mm]"
+    mapped_path, txt_path = _write_mapped_outputs(
+        outdir=outdir,
+        stem=stem,
+        mapped=mapped,
+        mapping=mapping,
+        xlabel=xlabel,
+        title=os.path.basename(pdf_path) + " — extracted marker points (mapped)",
+    )
 
     return overlay_path, mapped_path, txt_path, mapped
 
@@ -278,12 +321,52 @@ def main():
     mapping_a = AxisMapping(xscale="log10", xmin=0.3, xmax=300.0)
     mapping_b = AxisMapping(xscale="linear", xmin=0.0, xmax=300.0)
 
-    a = debug_one(os.path.join(repo_root, "fig_07a.pdf"), mapping_a, outdir)
-    b = debug_one(os.path.join(repo_root, "fig_07b.pdf"), mapping_b, outdir)
+    wrote: List[str] = []
 
-    print("Wrote:")
-    for p in [a[0], a[1], a[2], b[0], b[1], b[2]]:
-        print(" -", os.path.relpath(p, repo_root))
+    pdf_a = os.path.join(repo_root, "fig_07a.pdf")
+    pdf_b = os.path.join(repo_root, "fig_07b.pdf")
+
+    if os.path.exists(pdf_a):
+        a = debug_one(pdf_a, mapping_a, outdir)
+        wrote.extend([a[0], a[1], a[2]])
+    else:
+        tsv_a = os.path.join(outdir, "fig_07a_mapped_points.tsv")
+        if os.path.exists(tsv_a):
+            mapped_a = _load_mapped_tsv(tsv_a)
+            mp, tp = _write_mapped_outputs(
+                outdir=outdir,
+                stem="fig_07a",
+                mapped=mapped_a,
+                mapping=mapping_a,
+                xlabel="|d0| [mm]",
+                title="fig_07a.pdf (from TSV) — extracted marker points (mapped)",
+            )
+            wrote.extend([mp, tp])
+
+    if os.path.exists(pdf_b):
+        # Per request: ignore the unphysical point with efficiency > 1 in Fig 07b.
+        b = debug_one(pdf_b, mapping_b, outdir, filter_ymax=1.0)
+        wrote.extend([b[0], b[1], b[2]])
+    else:
+        tsv_b = os.path.join(outdir, "fig_07b_mapped_points.tsv")
+        if os.path.exists(tsv_b):
+            mapped_b = _filter_y_leq(_load_mapped_tsv(tsv_b), 1.0)
+            mp, tp = _write_mapped_outputs(
+                outdir=outdir,
+                stem="fig_07b",
+                mapped=mapped_b,
+                mapping=mapping_b,
+                xlabel="R_prod [mm]",
+                title="fig_07b.pdf (from TSV; filtered y<=1) — extracted marker points (mapped)",
+            )
+            wrote.extend([mp, tp])
+
+    if wrote:
+        print("Wrote:")
+        for p in wrote:
+            print(" -", os.path.relpath(p, repo_root))
+    else:
+        print("Nothing written: PDFs not found and no TSV fallbacks present.")
 
 
 if __name__ == "__main__":

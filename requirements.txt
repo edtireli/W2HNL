@@ -10,3 +10,4 @@ ipywidgets
 scikit-hep
 matplotlib
 particletools
+PyMuPDF

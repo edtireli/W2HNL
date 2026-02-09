@@ -77,7 +77,6 @@ atlas_track_reco_d0_eff = [
 atlas_track_reco_rprod_points_mm = [
 	4.94069,
 	14.8222,
-	16.7169,
 	24.7034,
 	34.5848,
 	44.4662,
@@ -92,7 +91,6 @@ atlas_track_reco_rprod_points_mm = [
 atlas_track_reco_rprod_eff = [
 	0.936755,
 	0.911044,
-	1.07089,
 	0.886173,
 	0.868147,
 	0.836178,

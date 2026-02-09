@@ -979,17 +979,38 @@ def data_processing(momenta):
     
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
     
+    if large_data:
+        # In large_data mode, survival_dv() only returns the DV survival mask (no r_lab/td/gamma).
+        # Cuts requiring r_lab (nontrivial invmass, ATLAS track reco) are therefore unsupported.
+        if apply_atlas_track_reco:
+            raise ValueError("apply_atlas_track_reco requires large_data=False (needs r_lab to compute d0 and R_prod)")
+        if invmass_cut_type == 'nontrivial':
+            raise ValueError("invmass_cut_type='nontrivial' requires large_data=False (needs r_lab)")
+
+        survival_dv_displaced = survival_dv(momentum=momenta, rng_type=1)
+        survival_invmass_displaced = survival_invmass(invmass_minimum, momentum=momenta, experimental_trigger=invmass_experimental)
+
+        arrays = (
+            np.array(survival_dv_displaced),
+            np.array(survival_pT_displaced),
+            np.array(survival_rap_displaced),
+            np.array(survival_invmass_displaced),
+            np.array(survival_deltaR_displaced),
+        )
+        return batch, arrays
+
+    # full mode (keeps DV positions, lifetimes, boosts)
     survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta, rng_type=1)
 
     survival_atlas_trackreco = None
     if apply_atlas_track_reco:
         survival_atlas_trackreco = survival_atlas_track_reco(momentum=momenta, r_labs=r_lab)
-        
+
     if invmass_cut_type == 'nontrivial':
         survival_invmass_displaced = survival_invmass_nontrivial(momentum=momenta, r_labs=r_lab)
     else:
         survival_invmass_displaced = survival_invmass(invmass_minimum, momentum=momenta, experimental_trigger=invmass_experimental)
-        
+
     arrays = (
         np.array(survival_dv_displaced),
         np.array(survival_pT_displaced),
@@ -1001,6 +1022,6 @@ def data_processing(momenta):
         np.array(lorentz_factors),
         None if survival_atlas_trackreco is None else np.array(survival_atlas_trackreco),
     ) # defining a tuple for easier management of survival arrays on main
-    
+
     return batch, arrays
     

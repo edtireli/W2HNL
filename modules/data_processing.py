@@ -4,6 +4,7 @@ import numpy as np
 from parameters.data_parameters import *
 from parameters.experimental_parameters import *
 from utils.hnl import *
+from utils.random_w2hnl import string_to_seed
 import copy
 from tqdm import tqdm
 import shutil
@@ -16,6 +17,163 @@ def nat_to_m():
 
 def light_speed():
     return 299792458
+
+
+def _closest_index(values, target):
+    values_arr = np.asarray(values, dtype=float)
+    return int(np.argmin(np.abs(values_arr - float(target))))
+
+
+def atlas_track_reco_eff_d0(d0_mm):
+    """ATLAS-inspired track reconstruction efficiency vs |d0| in mm."""
+    xp = np.asarray(atlas_track_reco_d0_points_mm, dtype=float)
+    fp = np.asarray(atlas_track_reco_d0_eff, dtype=float)
+    if xp.size == 0:
+        raise ValueError("atlas_track_reco_d0_points_mm is empty")
+    if xp.shape != fp.shape:
+        raise ValueError("atlas_track_reco_d0_points_mm and atlas_track_reco_d0_eff must have same length")
+    if np.any(np.diff(xp) <= 0):
+        raise ValueError("atlas_track_reco_d0_points_mm must be strictly increasing")
+
+    d0 = np.asarray(d0_mm, dtype=float)
+    d0 = np.maximum(np.abs(d0), 1e-6)
+    d0 = np.clip(d0, xp[0], xp[-1])
+    out = np.interp(np.log10(d0), np.log10(xp), fp, left=fp[0], right=fp[-1])
+    return np.clip(out, 0.0, 1.0)
+
+
+def atlas_track_reco_eff_rprod(rprod_mm):
+    """ATLAS-inspired track reconstruction efficiency vs R_prod in mm."""
+    xp = np.asarray(atlas_track_reco_rprod_points_mm, dtype=float)
+    fp = np.asarray(atlas_track_reco_rprod_eff, dtype=float)
+    if xp.size == 0:
+        raise ValueError("atlas_track_reco_rprod_points_mm is empty")
+    if xp.shape != fp.shape:
+        raise ValueError("atlas_track_reco_rprod_points_mm and atlas_track_reco_rprod_eff must have same length")
+    if np.any(np.diff(xp) < 0):
+        raise ValueError("atlas_track_reco_rprod_points_mm must be non-decreasing")
+
+    r = np.asarray(rprod_mm, dtype=float)
+    r = np.clip(r, xp[0], xp[-1])
+    out = np.interp(r, xp, fp, left=fp[0], right=fp[-1])
+    return np.clip(out, 0.0, 1.0)
+
+
+def survival_atlas_track_reco(momentum, r_labs):
+    """Compute per-event survival mask for ATLAS track reconstruction efficiency.
+
+    Returns a boolean array with shape (masses, mixings, batch_size).
+    Also saves validation arrays (for one representative mass/mixing).
+    """
+    if not apply_atlas_track_reco:
+        return None
+    if abs(pid_boson) != 24:
+        return None
+    if large_data:
+        raise ValueError("apply_atlas_track_reco requires large_data=False (needs r_labs to compute d0 and R_prod)")
+
+    array_name = "survival_atlas_trackreco"
+    loaded = load_cut_array_(array_name)
+    if loaded is not None:
+        print('[Loaded cut] ATLAS track reco')
+        return loaded.astype(bool)
+
+    # Dedicated RNG so results don't depend on whether other cuts were loaded from disk.
+    rng = np.random.default_rng(string_to_seed(str(rng_seed) + "_atlas_trackreco"))
+
+    idx_mass_val = _closest_index(mass_hnl, atlas_track_reco_validation_mass_GeV)
+    idx_mix_val = _closest_index(mixing, atlas_track_reco_validation_mixing)
+
+    survival_bool = np.zeros((len(mass_hnl), len(mixing), batch_size), dtype=bool)
+
+    # For validation plots (only for one mass/mix point)
+    val = {
+        'd0_minus_mm': None,
+        'd0_plus_mm': None,
+        'rprod_mm': None,
+        'mask_d0_minus': None,
+        'mask_d0_plus': None,
+        'mask_r_minus': None,
+        'mask_r_plus': None,
+        'mask_track_minus': None,
+        'mask_track_plus': None,
+    }
+
+    c_mm_per_s = light_speed() * 1e3
+
+    momentum_local = copy.deepcopy(momentum)
+    for i, mass in tqdm(enumerate(mass_hnl), total=len(mass_hnl), desc="[Computing cut] ATLAS track reco  "):
+        original_batch = ParticleBatch(momentum_local)
+        batch_minus = copy.deepcopy(original_batch).mass(mass).particle('displaced_minus')
+        batch_plus = copy.deepcopy(original_batch).mass(mass).particle('displaced_plus')
+
+        px_minus = batch_minus.px()
+        py_minus = batch_minus.py()
+        pt_minus = batch_minus.pT()
+
+        px_plus = batch_plus.px()
+        py_plus = batch_plus.py()
+        pt_plus = batch_plus.pT()
+
+        for j in range(len(mixing)):
+            rd = r_labs[i, j]  # shape (batch_size, 3), stored in seconds
+            x_mm = rd[:, 0] * c_mm_per_s
+            y_mm = rd[:, 1] * c_mm_per_s
+
+            rprod_mm = np.sqrt(x_mm**2 + y_mm**2)
+
+            # d0 = |r x p_T| / |p_T|
+            with np.errstate(divide='ignore', invalid='ignore'):
+                d0_minus = np.abs(x_mm * py_minus - y_mm * px_minus) / np.maximum(pt_minus, 1e-12)
+                d0_plus = np.abs(x_mm * py_plus - y_mm * px_plus) / np.maximum(pt_plus, 1e-12)
+
+            p_d0_minus = np.clip(atlas_track_reco_eff_d0(d0_minus), 0.0, 1.0)
+            p_d0_plus = np.clip(atlas_track_reco_eff_d0(d0_plus), 0.0, 1.0)
+            p_r = np.clip(atlas_track_reco_eff_rprod(rprod_mm), 0.0, 1.0)
+
+            # Independent survival decisions for d0 and R per track
+            u_d0_minus = rng.random(batch_size)
+            u_d0_plus = rng.random(batch_size)
+            u_r_minus = rng.random(batch_size)
+            u_r_plus = rng.random(batch_size)
+
+            mask_d0_minus = u_d0_minus < p_d0_minus
+            mask_d0_plus = u_d0_plus < p_d0_plus
+            mask_r_minus = u_r_minus < p_r
+            mask_r_plus = u_r_plus < p_r
+
+            mask_track_minus = mask_d0_minus & mask_r_minus
+            mask_track_plus = mask_d0_plus & mask_r_plus
+
+            survival_bool[i, j, :] = mask_track_minus & mask_track_plus
+
+            if i == idx_mass_val and j == idx_mix_val:
+                val['d0_minus_mm'] = d0_minus.astype(float)
+                val['d0_plus_mm'] = d0_plus.astype(float)
+                val['rprod_mm'] = rprod_mm.astype(float)
+                val['mask_d0_minus'] = mask_d0_minus
+                val['mask_d0_plus'] = mask_d0_plus
+                val['mask_r_minus'] = mask_r_minus
+                val['mask_r_plus'] = mask_r_plus
+                val['mask_track_minus'] = mask_track_minus
+                val['mask_track_plus'] = mask_track_plus
+
+    # Save survival mask
+    save_cut_array1(survival_bool, array_name)
+
+    # Save validation arrays if captured
+    if val['d0_minus_mm'] is not None:
+        save_array(val['d0_minus_mm'], 'atlas_trackreco_val_d0_minus_mm')
+        save_array(val['d0_plus_mm'], 'atlas_trackreco_val_d0_plus_mm')
+        save_array(val['rprod_mm'], 'atlas_trackreco_val_rprod_mm')
+        save_array(val['mask_d0_minus'].astype(int), 'atlas_trackreco_val_mask_d0_minus')
+        save_array(val['mask_d0_plus'].astype(int), 'atlas_trackreco_val_mask_d0_plus')
+        save_array(val['mask_r_minus'].astype(int), 'atlas_trackreco_val_mask_r_minus')
+        save_array(val['mask_r_plus'].astype(int), 'atlas_trackreco_val_mask_r_plus')
+        save_array(val['mask_track_minus'].astype(int), 'atlas_trackreco_val_mask_track_minus')
+        save_array(val['mask_track_plus'].astype(int), 'atlas_trackreco_val_mask_track_plus')
+
+    return survival_bool
 
 def unit_converter(initial_unit):
     """
@@ -822,17 +980,27 @@ def data_processing(momenta):
     survival_deltaR_displaced = survival_deltaR(deltaR_minimum, momentum=momenta)
     
     survival_dv_displaced, r_lab, lifetimes_rest_, lorentz_factors = survival_dv(momentum=momenta, rng_type=1)
+
+    survival_atlas_trackreco = None
+    if apply_atlas_track_reco:
+        survival_atlas_trackreco = survival_atlas_track_reco(momentum=momenta, r_labs=r_lab)
         
     if invmass_cut_type == 'nontrivial':
         survival_invmass_displaced = survival_invmass_nontrivial(momentum=momenta, r_labs=r_lab)
     else:
         survival_invmass_displaced = survival_invmass(invmass_minimum, momentum=momenta, experimental_trigger=invmass_experimental)
         
-    arrays = (np.array(survival_dv_displaced), np.array(survival_pT_displaced), 
-            np.array(survival_rap_displaced), np.array(survival_invmass_displaced), 
-            np.array(survival_deltaR_displaced), 
-            np.array(r_lab), np.array(lifetimes_rest_), np.array(lorentz_factors)
-     ) # defining a tuple for easier management of survival arrays on main
+    arrays = (
+        np.array(survival_dv_displaced),
+        np.array(survival_pT_displaced),
+        np.array(survival_rap_displaced),
+        np.array(survival_invmass_displaced),
+        np.array(survival_deltaR_displaced),
+        np.array(r_lab),
+        np.array(lifetimes_rest_),
+        np.array(lorentz_factors),
+        None if survival_atlas_trackreco is None else np.array(survival_atlas_trackreco),
+    ) # defining a tuple for easier management of survival arrays on main
     
     return batch, arrays
     

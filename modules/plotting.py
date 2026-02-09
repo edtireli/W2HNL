@@ -1611,7 +1611,11 @@ def plotting(momenta, batch, production_arrays, arrays):
     print_dashes('Plotting')
     # Loading of arrays supplied from main:
     if not large_data:
-        survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
+        survival_atlas_trackreco = None
+        if len(arrays) == 8:
+            survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
+        else:
+            survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors, survival_atlas_trackreco = arrays
     else:
         survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
 
@@ -1627,6 +1631,69 @@ def plotting(momenta, batch, production_arrays, arrays):
 
     if delete_png_before_use:
         delete_png_files(plot_path)
+
+    # ATLAS track reco validation plots
+    if (not large_data) and apply_atlas_track_reco:
+        try:
+            # Load validation arrays saved during cut computation
+            d0_minus = np.load(os.path.join(data_path, 'Plots', 'PlotData', 'atlas_trackreco_val_d0_minus_mm.npy'))
+            d0_plus = np.load(os.path.join(data_path, 'Plots', 'PlotData', 'atlas_trackreco_val_d0_plus_mm.npy'))
+            rprod = np.load(os.path.join(data_path, 'Plots', 'PlotData', 'atlas_trackreco_val_rprod_mm.npy'))
+            mask_d0_minus = np.load(os.path.join(data_path, 'Plots', 'PlotData', 'atlas_trackreco_val_mask_d0_minus.npy')).astype(bool)
+            mask_d0_plus = np.load(os.path.join(data_path, 'Plots', 'PlotData', 'atlas_trackreco_val_mask_d0_plus.npy')).astype(bool)
+            mask_r_minus = np.load(os.path.join(data_path, 'Plots', 'PlotData', 'atlas_trackreco_val_mask_r_minus.npy')).astype(bool)
+            mask_r_plus = np.load(os.path.join(data_path, 'Plots', 'PlotData', 'atlas_trackreco_val_mask_r_plus.npy')).astype(bool)
+
+            # Combine both tracks for per-track validation by stacking
+            d0_all = np.concatenate([np.abs(d0_minus), np.abs(d0_plus)])
+            mask_d0_all = np.concatenate([mask_d0_minus, mask_d0_plus])
+            r_all = np.concatenate([rprod, rprod])
+            mask_r_all = np.concatenate([mask_r_minus, mask_r_plus])
+
+            # d0 validation (log-x)
+            bins_d0 = np.logspace(np.log10(min(atlas_track_reco_d0_points_mm)), np.log10(max(atlas_track_reco_d0_points_mm)), 18)
+            counts, _ = np.histogram(d0_all, bins=bins_d0)
+            passed, _ = np.histogram(d0_all[mask_d0_all], bins=bins_d0)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                eff_binned = np.where(counts > 0, passed / counts, np.nan)
+            centers = np.sqrt(bins_d0[:-1] * bins_d0[1:])
+
+            plt.figure(figsize=(8, 5))
+            plt.xscale('log')
+            plt.ylim(0, 1.05)
+            plt.xlabel(r'$|d_0^{\mathrm{truth}}|$ [mm]')
+            plt.ylabel('Track reconstruction efficiency')
+            plt.grid(True, which='both', ls='--', alpha=0.25)
+            plt.plot(centers, eff_binned, marker='o', linestyle='None', label='Applied (binned)')
+            xcurve = np.logspace(np.log10(min(atlas_track_reco_d0_points_mm)), np.log10(max(atlas_track_reco_d0_points_mm)), 200)
+            plt.plot(xcurve, atlas_track_reco_eff_d0(xcurve), linestyle='-', label='Parameterization')
+            plt.legend()
+            save_plot('atlas_trackreco_validation_d0')
+            plt.show()
+
+            # R_prod validation (linear-x)
+            bins_r = np.linspace(min(atlas_track_reco_rprod_points_mm), max(atlas_track_reco_rprod_points_mm), 18)
+            counts_r, _ = np.histogram(r_all, bins=bins_r)
+            passed_r, _ = np.histogram(r_all[mask_r_all], bins=bins_r)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                eff_r_binned = np.where(counts_r > 0, passed_r / counts_r, np.nan)
+            centers_r = 0.5 * (bins_r[:-1] + bins_r[1:])
+
+            plt.figure(figsize=(8, 5))
+            plt.ylim(0, 1.05)
+            plt.xlabel(r'$R_{\mathrm{prod}}^{\mathrm{truth}}$ [mm]')
+            plt.ylabel('Track reconstruction efficiency')
+            plt.grid(True, which='both', ls='--', alpha=0.25)
+            plt.plot(centers_r, eff_r_binned, marker='o', linestyle='None', label='Applied (binned)')
+            xcurve_r = np.linspace(min(atlas_track_reco_rprod_points_mm), max(atlas_track_reco_rprod_points_mm), 400)
+            plt.plot(xcurve_r, atlas_track_reco_eff_rprod(xcurve_r), linestyle='-', label='Parameterization')
+            plt.legend()
+            save_plot('atlas_trackreco_validation_rprod')
+            plt.show()
+
+        except FileNotFoundError:
+            # If validation arrays aren't present (e.g. track reco cut disabled earlier), skip silently.
+            pass
 
     # Plots:
     if preliminary_plots:

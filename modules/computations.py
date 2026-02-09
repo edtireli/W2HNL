@@ -80,7 +80,12 @@ def print_dashes(text, char='-'):
 def computations(momenta, arrays):
     print_dashes('Computing HNL production')
     if not large_data:
-        survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
+        # arrays may optionally include ATLAS track reco mask at the end
+        survival_atlas_trackreco = None
+        if len(arrays) == 8:
+            survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors = arrays
+        else:
+            survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced, r_lab, lifetimes_rest, lorentz_factors, survival_atlas_trackreco = arrays
         save_array(survival_dv_displaced, name='survival_dv_displaced')
         save_array(survival_pT_displaced, name='survival_pT_displaced')
         save_array(survival_rap_displaced, name='survival_rap_displaced')
@@ -89,6 +94,8 @@ def computations(momenta, arrays):
         save_array(r_lab, name='r_labs')
         save_array(lifetimes_rest, name='lifetimes_rest')
         save_array(lorentz_factors, name='lorentz_factors')
+        if survival_atlas_trackreco is not None:
+            save_array(survival_atlas_trackreco, name='survival_atlas_trackreco')
     else:
         survival_dv_displaced, survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_deltaR_displaced = arrays
 
@@ -121,7 +128,9 @@ def computations(momenta, arrays):
     survival_pT_rap_invmass    = [survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced] 
     production__pT_rap_invmass = compute_production_efficiency(production_nocuts, survival_pT_rap_invmass)
 
-    survival_allcuts   = [survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_dv_displaced, survival_deltaR_displaced] 
+    survival_allcuts   = [survival_pT_displaced, survival_rap_displaced, survival_invmass_displaced, survival_dv_displaced, survival_deltaR_displaced]
+    if (not large_data) and apply_atlas_track_reco and ('survival_atlas_trackreco' in locals()) and (survival_atlas_trackreco is not None):
+        survival_allcuts.append(survival_atlas_trackreco)
     production_allcuts = compute_production_efficiency(production_nocuts, survival_allcuts)
 
     efficiency = compute_efficiency(production_nocuts, survival_allcuts)

@@ -21,6 +21,11 @@ pid_HNL              = 9900016 # HNL of SM flavour tau
 
 large_data = False # Special handling of large data files to avoid RAM overload by neglecting some DV arrays (lifetimes, positions, lorentz factors)
 
+# Optional output folder override.
+# If set, plots/cut caches are written under data/<output_folder>/...,
+# while input data is still loaded from data/<data_folder>/...
+output_folder = None
+
 # ------------------------------------------------------------
 # ATLAS-derived track reconstruction efficiency (W process)
 #　From https://arxiv.org/pdf/2304.12867 Fig. 7

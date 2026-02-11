@@ -64,7 +64,8 @@ def compute_production_efficiency(production_nocuts, survivals):
 
 def save_array(array, name=''):
     current_directory = os.getcwd()                                         # Current path
-    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path         = os.path.join(current_directory,'data', out_folder) # Output folder path
     array_path         = os.path.join(data_path, 'Plots', 'PlotData', f'{name}.npy')
     os.makedirs(os.path.join(data_path, 'Plots'), exist_ok=True) # Making directory if not already exists
     os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True) # Making directory if not already exists

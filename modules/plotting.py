@@ -194,7 +194,8 @@ def plot_survival_2d(survival_array, label_array):
 
 def save_contour_data(contour_data, name):
     current_directory = os.getcwd()
-    data_path = os.path.join(current_directory, 'data', data_folder)
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path = os.path.join(current_directory, 'data', out_folder)
     contour_data_path = os.path.join(data_path, 'Plots', 'PlotData', f'{name}.pkl')
     os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True)  # Ensure the directory exists
 
@@ -205,7 +206,8 @@ def save_contour_data(contour_data, name):
 
 def save_survival_data(survival_data, name):
     current_directory = os.getcwd()
-    data_path = os.path.join(current_directory, 'data', data_folder)
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path = os.path.join(current_directory, 'data', out_folder)
     survival_data_path = os.path.join(data_path, 'Plots', 'PlotData', f'{name}.pkl')
     os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True)  # Ensure the directory exists
 
@@ -335,7 +337,8 @@ def plot_parameter_space_region(production_allcuts, title='', savename=''):
 
 def save_data(mass_grid, mixing_grid, production_grid, filename):
     current_directory = os.getcwd()
-    data_path = os.path.join(current_directory, 'data', data_folder)
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path = os.path.join(current_directory, 'data', out_folder)
     file_path = os.path.join(data_path, 'Plots', 'PlotData', filename)
     os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True)  # Ensure the directory exists
     with open(file_path, 'wb') as f:
@@ -1014,7 +1017,8 @@ def mean_from_2d_survival(arr):
 
 def save_plot(name, dpi=300):
     current_directory = os.getcwd()                                         # Current path
-    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path         = os.path.join(current_directory,'data', out_folder) # Output folder path
     plot_path         = os.path.join(data_path, 'Plots', f'{name}.png')
     os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True) # Making directory if not already exists
 
@@ -1023,7 +1027,8 @@ def save_plot(name, dpi=300):
 
 def save_array(array, name=''):
     current_directory = os.getcwd()                                         # Current path
-    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path         = os.path.join(current_directory,'data', out_folder) # Output folder path
     array_path         = os.path.join(data_path, 'Plots', 'PlotData', f'{name}.npy')
     os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True) # Making directory if not already exists
 
@@ -1537,7 +1542,8 @@ def plot_production_heatmap(production, title='Production Rates', savename='', s
     
     if save_grid:
         current_directory = os.getcwd()
-        data_path = os.path.join(current_directory, 'data', data_folder)
+        out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+        data_path = os.path.join(current_directory, 'data', out_folder)
         save_path = os.path.join(data_path, 'Plots', 'PlotData')
         os.makedirs(save_path, exist_ok=True)  # Ensure the directory exists
         
@@ -1626,7 +1632,8 @@ def plotting(momenta, batch, production_arrays, arrays):
         average_lorentz_factors = np.mean(lorentz_factors, axis=(1, 2))
 
     current_directory = os.getcwd()
-    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path         = os.path.join(current_directory,'data', out_folder) # Output folder path
     plot_path         = os.path.join(data_path, 'Plots')
 
     if delete_png_before_use:

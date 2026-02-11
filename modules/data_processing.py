@@ -894,7 +894,8 @@ def survival_deltaR(cut_condition, momentum):
 
 def save_array(array, name=''):
     current_directory = os.getcwd()                                         # Current path
-    data_path         = os.path.join(current_directory,'data', data_folder) # Data folder path
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path         = os.path.join(current_directory,'data', out_folder) # Output folder path
     array_path         = os.path.join(data_path, 'Plots', 'PlotData', f'{name}.npy')
     os.makedirs(os.path.join(data_path, 'Plots'), exist_ok=True) # Making directory if not already exists
     os.makedirs(os.path.join(data_path, 'Plots', 'PlotData'), exist_ok=True)
@@ -907,7 +908,8 @@ def print_dashes(text, char='-'):
 
 def save_cut_array1(array, name=''):
     current_directory = os.getcwd()
-    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path = os.path.join(current_directory, 'data', out_folder, 'Cut computations')
     os.makedirs(data_path, exist_ok=True)
     array_path = os.path.join(data_path, f'{name}.npz')
     
@@ -916,7 +918,8 @@ def save_cut_array1(array, name=''):
 
 def load_cut_array1(name=''):
     current_directory = os.getcwd()
-    data_path = os.path.join(current_directory, 'data', data_folder)
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path = os.path.join(current_directory, 'data', out_folder)
     array_path = os.path.join(data_path, 'Cut computations', f'{name}.npz')
     if os.path.exists(array_path):
         data = np.load(array_path)
@@ -925,7 +928,8 @@ def load_cut_array1(name=''):
 
 def save_cut_array(array, name=''):
     current_directory = os.getcwd()
-    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path = os.path.join(current_directory, 'data', out_folder, 'Cut computations')
     os.makedirs(data_path, exist_ok=True)
     array_path = os.path.join(data_path, f'{name}.npz')
     
@@ -942,7 +946,8 @@ def save_cut_array(array, name=''):
 
 def load_cut_array_(name=''):
     current_directory = os.getcwd()
-    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path = os.path.join(current_directory, 'data', out_folder, 'Cut computations')
     array_path = os.path.join(data_path, f'{name}.npz')
     if os.path.exists(array_path):
         data = np.load(array_path)
@@ -952,7 +957,8 @@ def load_cut_array_(name=''):
 
 def load_cut_array(name=''):
     current_directory = os.getcwd()
-    data_path = os.path.join(current_directory, 'data', data_folder, 'Cut computations')
+    out_folder = output_folder if ('output_folder' in globals() and output_folder) else data_folder
+    data_path = os.path.join(current_directory, 'data', out_folder, 'Cut computations')
     if not os.path.exists(data_path):
         os.makedirs(data_path)
     array_path = os.path.join(data_path, f'{name}.npz')
